@@ -1,0 +1,6 @@
+#define PLATFORM_WIN 1
+
+#if PLATFORM_WIN
+#define WIN32_LEAN_AND_MEAN
+#define _CRT_SECURE_NO_WARNINGS
+#endif
