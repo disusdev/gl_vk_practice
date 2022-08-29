@@ -54,6 +54,9 @@ raw_text read_text_file(const char* file_path)
   raw_text text;
   
   FILE* f = fopen(file_path, "rb");
+
+  assert(f);
+
   fseek(f, 0, SEEK_END);
   text.length = ftell(f);
   fseek(f, 0, SEEK_SET);
@@ -95,11 +98,13 @@ unsigned char *LoadFileData(const char *fileName, unsigned int *bytesRead)
 
             if (size > 0)
             {
-                data = (unsigned char *)malloc(size*sizeof(unsigned char));
+                data = (unsigned char *)malloc(size*sizeof(unsigned char) + 1);
 
                 // NOTE: fread() returns number of read elements instead of bytes, so we read [1 byte, size elements]
                 unsigned int count = (unsigned int)fread(data, sizeof(unsigned char), size, file);
                 *bytesRead = count;
+
+                data[size] = '\0';
             }
 
             fclose(file);
@@ -107,6 +112,11 @@ unsigned char *LoadFileData(const char *fileName, unsigned int *bytesRead)
     }
 
     return data;
+}
+
+void UnloadFileData(unsigned char* data)
+{
+  free(data);
 }
 
 #endif

@@ -128,7 +128,7 @@ void _clst_destroy(t_clst* lst)
     CLST_FREE(node_to_delete, sizeof(t_clst_node), MEM_TAG_CLST);
   }
 
-  CLST_MEMSET(&lst, 0, sizeof(t_clst));
+  CLST_MEMSET(lst, 0, sizeof(t_clst));
 }
 
 void _clst_push(t_clst* lst, const void* value_ptr)

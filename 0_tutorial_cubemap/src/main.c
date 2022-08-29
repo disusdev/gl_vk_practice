@@ -1,35 +1,69 @@
 // 0_tutorial_cubemap
 
-#include <shared/defines.h>
+#include <defines.h>
 
-#include <external/glad.h>
+#include <glad.h>
 
 #define RGLFW_IMPLEMENTATION
-#include <external/rglfw.h>
+#include <rglfw.h>
 
 #define GLAD_MALLOC malloc
 #define GLAD_FREE free
 #define GLAD_GL_IMPLEMENTATION
-#include <external/glad.h>
+#include <glad.h>
+
+#include <assert.h>
+
+#if defined(_WIN32) && defined(__TINYC__)
+  #ifdef __int64
+    #undef __int64
+  #endif
+  #define __int64 long
+  #define _ftelli64 ftell
+#endif
 
 #define CGLTF_IMPLEMENTATION
-#include <external/cgltf.h>
+#define CGLTF_VALIDATE_ENABLE_ASSERTS 1
+#include <cgltf.h>
 
-#include <shared/debug.h>
+#if defined(_WIN32) && defined(__TINYC__)
+  #undef __int64
+  #define __int64 long long
+  #undef _ftelli64
+#endif
 
-#include <shared/math/mathm.h>
+#include <debug.h>
+
+#include <math/mathm.c>
 
 #define GL_SHADER_IMPLEMENTATION
-#include <shared/gl/gl_shader.h>
+#include <gl/gl_shader.h>
 
-typedef struct
-VertexData
-{
-	vec3 pos;
-	vec3 n;
-	vec2 tc;
-}
-VertexData;
+#define CVEC_IMPLEMENTATION
+#define CVEC_STDLIB
+#include <containers/cvec.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+// #define STBI_MAX_DIMENSIONS (1 << 64)
+#include <stb_image.h>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
+#define CBITMAP_STDLIB
+#define CBITMAP_IMPLEMENTATION
+#include <resource/cbitmap.h>
+
+#define TINYOBJ_MALLOC malloc
+#define TINYOBJ_CALLOC calloc
+#define TINYOBJ_REALLOC realloc
+#define TINYOBJ_FREE free
+
+#define TINYOBJ_LOADER_C_IMPLEMENTATION
+#include <tinyobj_loader_c.h>
+
+#include <gl/model_loader.h>
+
 
 typedef struct
 PerFrameData
@@ -39,24 +73,6 @@ PerFrameData
 	vec4 cameraPos;
 }
 PerFrameData;
-
-//typedef struct
-//t_model
-//{
-//	mat4 transform;       // Local transform matrix
-//
-//	int meshCount;          // Number of meshes
-//	int materialCount;      // Number of materials
-//	Mesh* meshes;           // Meshes array
-//	Material* materials;    // Materials array
-//	int* meshMaterial;      // Mesh material number
-//
-//	// Animation data
-//	int boneCount;          // Number of bones
-//	BoneInfo* bones;        // Bones information (skeleton)
-//	Transform* bindPose;    // Bones base transformation (pose)
-//}
-//t_model;
 
 void gltf_error_callback(int error, const char* description)
 {
@@ -116,79 +132,169 @@ int main()
 	glNamedBufferStorage(perFrameDataBuffer, kUniformBufferSize, NULL, GL_DYNAMIC_STORAGE_BIT);
 	glBindBufferRange(GL_UNIFORM_BUFFER, 0, perFrameDataBuffer, 0, kUniformBufferSize);
 
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 	glEnable(GL_DEPTH_TEST);
+	// glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	// model load gltf
+	//t_model* model = LoadGLTF("../../data/rubber_duck/scene.gltf");
+	t_model* model = LoadGLTF("../../data/DragonAttenuation/glTF/DragonAttenuation.gltf");
+	//t_model* model = LoadGLTF("../../data/Cube/Cube.gltf");
+	//t_model* model = LoadOBJ("../../data/Cube/Cube.obj");
+
+	int mesh_idx = 1;
+
+	t_mesh* mesh = &model->meshes[mesh_idx];
+
+	mesh->vn_vertices = cvec_ncreate(VertexData, mesh->vertexCount);
+	cvec_resize(mesh->vn_vertices, mesh->vertexCount);
+
+	for (u64 i = 0; i < mesh->vertexCount; i++)
 	{
-		#define LOAD_ATTRIBUTE(accesor, numComp, dataType, dstPtr) \
-    { \
-        int n = 0; \
-        dataType *buffer = (dataType *)accesor->buffer_view->buffer->data + accesor->buffer_view->offset/sizeof(dataType) + accesor->offset/sizeof(dataType); \
-        for (unsigned int k = 0; k < accesor->count; k++) \
-        {\
-            for (int l = 0; l < numComp; l++) \
-            {\
-                dstPtr[numComp*k + l] = buffer[n + l];\
-            }\
-            n += (int)(accesor->stride/sizeof(dataType));\
-        }\
-    }
+		mesh->vn_vertices[i].pos.x = mesh->v_vertices[i * 3];
+		mesh->vn_vertices[i].pos.y = mesh->v_vertices[i * 3 + 1];
+		mesh->vn_vertices[i].pos.z = mesh->v_vertices[i * 3 + 2];
 
-		// glTF file loading
-		unsigned int dataSize = 0;
-		unsigned char* fileData = LoadFileData("../../data/rubber_duck/scene.gltf", &dataSize);
+		mesh->vn_vertices[i].n.x = mesh->v_normals[i * 3];
+		mesh->vn_vertices[i].n.y = mesh->v_normals[i * 3 + 1];
+		mesh->vn_vertices[i].n.z = mesh->v_normals[i * 3 + 2];
 
-		// glTF data loading
-		cgltf_options options = { 0 };
-		cgltf_data* data = NULL;
-		cgltf_result result = cgltf_parse(&options, fileData, dataSize, &data);
+		mesh->vn_vertices[i].tc.x = mesh->v_texcoords[i * 2];
+		mesh->vn_vertices[i].tc.y = mesh->v_texcoords[i * 2 + 1];
+	}
 
-		if (result == cgltf_result_success)
+	u64 idx_size = sizeof(u32) * (mesh->triangleCount * 3);
+	u64 vert_size = sizeof(VertexData) * mesh->vertexCount;
+
+	// indices
+	GLuint dataIndices;
+	glCreateBuffers(1, &dataIndices);
+	glNamedBufferStorage(dataIndices, idx_size, mesh->v_indices, 0);
+	GLuint vao;
+	glCreateVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glVertexArrayElementBuffer(vao, dataIndices);
+
+	// vertices
+	GLuint dataVertices;
+	glCreateBuffers(1, &dataVertices);
+	glNamedBufferStorage(dataVertices, vert_size, mesh->vn_vertices, 0);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, dataVertices);
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// texture
+	GLuint texture;
+	{
+		int w, h, comp;
+		// const uint8_t* img = stbi_load("../../data/rubber_duck/textures/Duck_baseColor.png", &w, &h, &comp, 3);
+		const uint8_t* img = stbi_load("../../data/DragonAttenuation/glTF/Dragon_ThicknessMap.jpg", &w, &h, &comp, 3);
+
+		glCreateTextures(GL_TEXTURE_2D, 1, &texture);
+		glTextureParameteri(texture, GL_TEXTURE_MAX_LEVEL, 0);
+		glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTextureStorage2D(texture, 1, GL_RGB8, w, h);
+		glTextureSubImage2D(texture, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, img);
+		glBindTextures(0, 1, &texture);
+
+		stbi_image_free((void*)img);
+	}
+
+	// cube map
+	GLuint cubemapTex;
+	{
+		int w, h, comp;
+
+		//const float* img = stbi_loadf("../../data/piazza_bologni_1k.hdr", &w, &h, &comp, 3);
+		//const float* img = stbi_loadf("../../data/Milkyway_small.hdr", &w, &h, &comp, 3);
+		//const float* img = stbi_loadf("../../data/Ice_Lake_Ref.hdr", &w, &h, &comp, 3);
+		const float* img = stbi_loadf("../../data/SnowPano_4k_Ref.hdr", &w, &h, &comp, 3);
+		//const float* img = stbi_loadf("../../data/country_club_16k.hdr", &w, &h, &comp, 3);
+		//const float* img = stbi_loadf("../../data/pretville_cinema_1k.hdr", &w, &h, &comp, 3);
+
+		t_cbitmap* in = cbitmap_create_from_data(w, h, 1, comp, BITMAP_FORMAT_F32, img);
+		t_cbitmap* out = convert_equirectangular_map_to_vertical_cross(in);
+
+		//stbi_write_hdr("in_screenshot.hdr", in->w, in->h, in->comp, (const float*)in->data);
+		//stbi_write_hdr("out_screenshot.hdr", out->w, out->h, out->comp, (const float*)out->data);
+
+		stbi_image_free((void*)img);
+
+		t_cbitmap* cubemap = convert_vertical_cross_to_cube_map_faces(out);
+
+		glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &cubemapTex);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_BASE_LEVEL, 0);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_MAX_LEVEL, 0);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_MAX_LEVEL, 0);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTextureParameteri(cubemapTex, GL_TEXTURE_CUBE_MAP_SEAMLESS, GL_TRUE);
+		glTextureStorage2D(cubemapTex, 1, GL_RGB32F, cubemap->w, cubemap->h);
+		const uint8_t* data = cubemap->data;
+
+		for (unsigned i = 0; i != 6; ++i)
 		{
-			result = cgltf_load_buffers(&options, data, "../../data/rubber_duck/scene.gltf");
-			if (result != cgltf_result_success) assert(false);
-
-			int primitivesCount = 0;
-			// NOTE: We will load every primitive in the glTF as a separate raylib mesh
-			for (unsigned int i = 0; i < data->meshes_count; i++) primitivesCount += (int)data->meshes[i].primitives_count;
-
-			// Load our model data: meshes and materials
-			// model.meshCount = primitivesCount;
-			// model.meshes = calloc(model.meshCount, sizeof(Mesh));
-
-			for (unsigned int i = 0, meshIndex = 0; i < primitivesCount; i++)
-			{
-				for (unsigned int p = 0; p < data->meshes[i].primitives_count; p++)
-				{
-					if (data->meshes[i].primitives[p].type != cgltf_primitive_type_triangles) continue;
-
-					for (unsigned int j = 0; j < data->meshes[i].primitives[p].attributes_count; j++)
-					{
-						if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_position)      // POSITION
-						{
-							cgltf_accessor* attribute = data->meshes[i].primitives[p].attributes[j].data;
-
-							// WARNING: SPECS: POSITION accessor MUST have its min and max properties defined.
-
-							if ((attribute->component_type == cgltf_component_type_r_32f) && (attribute->type == cgltf_type_vec3))
-							{
-								// Init raylib mesh vertices to copy glTF attribute data
-								//model.meshes[meshIndex].vertexCount = (int)attribute->count;
-								//model.meshes[meshIndex].vertices = malloc(attribute->count * 3 * sizeof(float));
-
-								// Load 3 components of float data type into mesh.vertices
-								//LOAD_ATTRIBUTE(attribute, 3, float, model.meshes[meshIndex].vertices)
-							}
-							// else TRACELOG(LOG_WARNING, "MODEL: [%s] Vertices attribute data format not supported, use vec3 float", fileName);
-						}
-					}
-				}
-			}
+			glTextureSubImage3D(cubemapTex, 0, 0, 0, i, cubemap->w, cubemap->h, 1, GL_RGB, GL_FLOAT, data);
+			data += cubemap->w * cubemap->h * cubemap->comp * (cubemap->format ? 4 : 1);
 		}
+		glBindTextures(1, 1, &cubemapTex);
 	}
 
 	// loop
+	while (!glfwWindowShouldClose(window))
+	{
+		int width, height;
+		glfwGetFramebufferSize(window, &width, &height);
+		const float ratio = width / (float)height;
+
+		glViewport(0, 0, width, height);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		const mat4 p = mat4_persp(DEG2RAD * 90.0f, ratio, 0.1f, 1000.0f);
+
+		{
+			const float time = (float)glfwGetTime();
+
+			const vec3 pos = (vec3){ 0.0f, -0.5f, -4.0f - sinf(time /** 0.5*/) };
+
+			const vec3 axis = (vec3){ 0.0f, 1.0f, 0.0f };
+			const quat q = quat_from_axis_angle(axis, -time /** 0.5*/, false);
+			mat4 tr = mat4_mul(model->transforms[mesh_idx], mat4_mul(quat_to_mat4(q), mat4_translation(pos)));
+
+			PerFrameData perFrameData;
+			perFrameData.model = tr;
+			perFrameData.mvp = mat4_mul(tr, p);
+			perFrameData.cameraPos = vec4_zero();
+
+			glNamedBufferSubData(perFrameDataBuffer, 0, kUniformBufferSize, &perFrameData);
+			gl_program_use(progModel);
+
+			glDrawElements(GL_TRIANGLES, (u32)(mesh->triangleCount * 3), GL_UNSIGNED_INT, NULL);
+		}
+
+		{
+			const mat4 m = mat4_scale_scalar(100.0f);
+			PerFrameData perFrameData;
+			perFrameData.model = m;
+			perFrameData.mvp = mat4_mul(m, p);
+			perFrameData.cameraPos = vec4_zero();
+			glNamedBufferSubData(perFrameDataBuffer, 0, kUniformBufferSize, &perFrameData);
+			gl_program_use(progCube);
+			glDrawArrays(GL_TRIANGLES, 0, 36);
+		}
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	glDeleteBuffers(1, &dataIndices);
+	glDeleteBuffers(1, &dataVertices);
+	glDeleteBuffers(1, &perFrameDataBuffer);
+	glDeleteVertexArrays(1, &vao);
 
 	glfwDestroyWindow(window);
 	glfwTerminate();

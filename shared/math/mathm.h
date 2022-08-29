@@ -36,6 +36,9 @@
 LIB_API float math_sin(float x);
 LIB_API float math_cos(float x);
 LIB_API float math_tan(float x);
+LIB_API float math_atan2(float x, float y);
+LIB_API float math_hypot(float p, float b);
+LIB_API float math_floor(float f);
 LIB_API float math_acos(float x);
 LIB_API float math_sqrt(float x);
 LIB_API float math_abs(float x);
@@ -158,7 +161,11 @@ LIB_INLINE float vec2_distance(vec2 vec_0, vec2 vec_1)
 
 LIB_INLINE vec3 vec3_create(float x, float y, float z)
 {
-  return (vec3) { { x, y, z } };
+  vec3 v;
+  v.x = x;
+  v.y = y;
+  v.z = z;
+  return v;
 }
 
 LIB_INLINE vec3 vec3_from_vec4(vec4 vec)
@@ -374,6 +381,11 @@ LIB_INLINE vec4 vec4_mul(vec4 vec_0, vec4 vec_1)
   return res;
 }
 
+LIB_INLINE vec4 vec4_mul_scalar(vec4 vec_0, float scalar)
+{
+  return (vec4) { { vec_0.x* scalar, vec_0.y* scalar, vec_0.z* scalar, vec_0.w* scalar } };
+}
+
 LIB_INLINE vec4 vec4_div(vec4 vec_0, vec4 vec_1)
 {
   vec4 res;
@@ -476,16 +488,31 @@ LIB_INLINE mat4 mat4_ortho(float left, float right, float bottom, float top, flo
 
 LIB_INLINE mat4 mat4_persp(float fov, float aspect, float near, float far)
 {
-  float half_tan_fov = math_tan(fov * 0.5f);
-  mat4 out_mat;
-  //mem_zero(out_mat.data, sizeof(float) * 16);
-  memset(out_mat.data, 0, sizeof(float) * 16);
-  out_mat.data[0] = 1.0f / (aspect * half_tan_fov);
-  out_mat.data[0] = 1.0f / half_tan_fov;
-  out_mat.data[0] = -((far + near) / (far - near));
-  out_mat.data[0] = -1.0f;
-  out_mat.data[0] = -((1.0f * far * near) / (far - near));
-  return out_mat;
+  //float half_tan_fov = math_tan(DEG2RAD * fov * 0.5f);
+
+  //f32 yScale = 1.0f / half_tan_fov;
+  //f32 xScale = yScale / aspect;
+  //f32 nearmfar = near - far;
+
+  //mat4 out_mat;
+  ////mem_zero(out_mat.data, sizeof(float) * 16);
+  //memset(out_mat.data, 0, sizeof(float) * 16);
+  //out_mat.data[0] = xScale;
+  //out_mat.data[5] = yScale;
+  //out_mat.data[10] = (far + near) / nearmfar;
+  //out_mat.data[11] = -1.0f;
+  //out_mat.data[14] = 2 * far * near / nearmfar;
+  //return out_mat;
+
+  f32 half_tan_fov = math_tan(fov * 0.5f);
+  mat4 out_matrix;
+  memset(out_matrix.data, 0, sizeof(f32) * 16);
+  out_matrix.data[0] = 1.0f / (aspect * half_tan_fov);
+  out_matrix.data[5] = 1.0f / half_tan_fov;
+  out_matrix.data[10] = -((far + near) / (far - near));
+  out_matrix.data[11] = -1.0f;
+  out_matrix.data[14] = -((2.0f * far * near) / (far - near));
+  return out_matrix;
 }
 
 LIB_INLINE mat4 mat4_look_at(vec3 pos, vec3 target, vec3 up)
@@ -613,10 +640,16 @@ LIB_INLINE mat4 mat4_translation(vec3 position)
 LIB_INLINE mat4 mat4_scale(vec3 scale)
 {
   mat4 out_mat = mat4_identity();
-  out_mat.data[0] = scale.x;
-  out_mat.data[5] = scale.y;
-  out_mat.data[10] = scale.z;
+  float* m = out_mat.data;
+  m[0] *= scale.x;   m[4] *= scale.x;   m[8] *= scale.x;   m[12] *= scale.x;
+  m[1] *= scale.y;   m[5] *= scale.y;   m[9] *= scale.y;   m[13] *= scale.y;
+  m[2] *= scale.z;   m[6] *= scale.z;   m[10] *= scale.z;  m[14] *= scale.z;
   return out_mat;
+}
+
+LIB_INLINE mat4 mat4_scale_scalar(float scale)
+{
+  return mat4_scale((vec3) { scale, scale, scale });
 }
 
 LIB_INLINE mat4 mat4_euler_x(float angle_rad)
@@ -730,7 +763,12 @@ LIB_INLINE vec3 mat4_right(mat4 mat)
 
 LIB_INLINE quat quat_identity()
 {
-  return (quat) { {0.0f, 0.0f, 0.0f, 1.0f } };
+  quat q;
+  q.x = 0.0f;
+  q.y = 0.0f;
+  q.z = 0.0f;
+  q.w = 1.0f;
+  return q;
 }
 
 LIB_INLINE float quat_normal(quat q)
@@ -740,8 +778,12 @@ LIB_INLINE float quat_normal(quat q)
 
 LIB_INLINE quat quat_normalize(quat q)
 {
-  float normal = quat_normal(q);
-  return (quat) { { q.x / normal, q.y / normal, q.z / normal, q.w / normal } };
+  float normal = 1.0f / quat_normal(q);
+  q.x = q.x * normal;
+  q.y = q.y * normal;
+  q.z = q.z * normal;
+  q.w = q.w * normal;
+  return q;
 }
 
 LIB_INLINE quat quat_conjugate(quat q)
@@ -758,25 +800,37 @@ LIB_INLINE quat quat_mul(quat q_0, quat q_1)
 {
   quat out_quat;
   
-  out_quat.x = q_0.x * q_1.w +
-    q_0.y * q_1.z -
-    q_0.z * q_1.y +
-    q_0.w * q_1.y;
-  
-  out_quat.y = -q_0.x * q_1.z +
-    q_0.y * q_1.w +
-    q_0.z * q_1.x +
-    q_0.w * q_1.y;
-  
-  out_quat.z = q_0.x * q_1.y -
-    q_0.y * q_1.x +
-    q_0.z * q_1.w +
-    q_0.w * q_1.z;
-  
-  out_quat.w = -q_0.x * q_1.x -
-    q_0.y * q_1.y -
-    q_0.z * q_1.z +
-    q_0.w * q_1.w;
+  //out_quat.x = q_0.x * q_1.w +
+  //  q_0.y * q_1.z -
+  //  q_0.z * q_1.y +
+  //  q_0.w * q_1.y;
+  //
+  //out_quat.y = -q_0.x * q_1.z +
+  //  q_0.y * q_1.w +
+  //  q_0.z * q_1.x +
+  //  q_0.w * q_1.y;
+  //
+  //out_quat.z = q_0.x * q_1.y -
+  //  q_0.y * q_1.x +
+  //  q_0.z * q_1.w +
+  //  q_0.w * q_1.z;
+  //
+  //out_quat.w = -q_0.x * q_1.x -
+  //  q_0.y * q_1.y -
+  //  q_0.z * q_1.z +
+  //  q_0.w * q_1.w;
+
+  vec3 v1 = (vec3){ q_0.x, q_0.y, q_0.z };
+  vec3 v2 = (vec3){ q_1.x, q_1.y, q_1.z };
+
+  vec3 cross = vec3_cross(v1, v2);
+  f32 dot = vec3_dot(v1, v2);
+  vec3 v3 = vec3_add(vec3_add(cross, vec3_mul_scalar(v2, q_0.w)), vec3_mul_scalar(v1, q_1.w));
+
+  out_quat.w = q_0.w * q_1.w - dot;
+  out_quat.x = v3.x;
+  out_quat.y = v3.y;
+  out_quat.z = v3.z;
   
   return out_quat;
 }
@@ -791,23 +845,54 @@ LIB_INLINE float quat_dot(quat q_0, quat q_1)
 
 LIB_INLINE mat4 quat_to_mat4(quat q)
 {
-  mat4 out_mat = mat4_identity();
-  
+  //mat4 out_mat = mat4_identity();
+  //// quat n = quat_normalize(q);
+  //
+  //float nn = 2.0f / (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+  //q.x *= nn;
+  //q.y *= nn;
+  //q.z *= nn;
+  //q.w *= nn;
+  //
+  //out_mat.data[0] = 1.0f - nn * q.y * q.y - nn * q.z * q.z;
+  //out_mat.data[1] = nn * q.x * q.y - nn * q.z * q.w;
+  //out_mat.data[2] = nn * q.x * q.z + nn * q.y * q.w;
+  //out_mat.data[3] = 0.0f;
+  //
+  //out_mat.data[4] = nn * q.x * q.y + nn * q.z * q.w;
+  //out_mat.data[5] = 1.0f - nn * q.x * q.x - nn * q.z * q.z;
+  //out_mat.data[6] = nn * q.y * q.z - nn * q.x * q.w;
+  //out_mat.data[7] = 0.0f;
+  //
+  //out_mat.data[8] = nn * q.x * q.z - nn * q.y * q.w;
+  //out_mat.data[9] = nn * q.y * q.z + nn * q.x * q.w;
+  //out_mat.data[10] = 1.0f - nn * q.x * q.x - nn * q.y * q.y;
+  //out_mat.data[11] = 0.0f;
+
+  //out_mat.data[12] = 0.0f;
+  //out_mat.data[13] = 0.0f;
+  //out_mat.data[14] = 0.0f;
+  //out_mat.data[15] = 1.0f;
+  //
+  //return out_mat;
+
+  mat4 out_matrix = mat4_identity();
+
   quat n = quat_normalize(q);
-  
-  out_mat.data[0] = 1.0f - 2.0f * n.y * n.y - 2.0f * n.z * n.z;
-  out_mat.data[1] = 2.0f * n.x * n.y - 2.0f * n.z * n.w;
-  out_mat.data[2] = 2.0f * n.x * n.z + 2.0f * n.y * n.w;
-  
-  out_mat.data[4] = 2.0f * n.x * n.y + 2.0f * n.z * n.w;
-  out_mat.data[5] = 1.0f - 2.0f * n.x * n.x - 2.0f * n.z * n.z;
-  out_mat.data[6] = 2.0f * n.y * n.z - 2.0f * n.x * n.w;
-  
-  out_mat.data[8] = 2.0f * n.x * n.z - 2.0f * n.y * n.w;
-  out_mat.data[9] = 2.0f * n.y * n.z + 2.0f * n.x * n.w;
-  out_mat.data[10] = 1.0f - 2.0f * n.x * n.x - 2.0f * n.y * n.y;
-  
-  return out_mat;
+
+  out_matrix.data[0] = 1.0f - 2.0f * n.y * n.y - 2.0f * n.z * n.z;
+  out_matrix.data[1] = 2.0f * n.x * n.y - 2.0f * n.z * n.w;
+  out_matrix.data[2] = 2.0f * n.x * n.z + 2.0f * n.y * n.w;
+
+  out_matrix.data[4] = 2.0f * n.x * n.y + 2.0f * n.z * n.w;
+  out_matrix.data[5] = 1.0f - 2.0f * n.x * n.x - 2.0f * n.z * n.z;
+  out_matrix.data[6] = 2.0f * n.y * n.z - 2.0f * n.x * n.w;
+
+  out_matrix.data[8] = 2.0f * n.x * n.z - 2.0f * n.y * n.w;
+  out_matrix.data[9] = 2.0f * n.y * n.z + 2.0f * n.x * n.w;
+  out_matrix.data[10] = 1.0f - 2.0f * n.x * n.x - 2.0f * n.y * n.y;
+
+  return out_matrix;
 }
 
 LIB_INLINE mat4 quat_to_rotation_mat(quat q, vec3 center)
@@ -839,15 +924,31 @@ LIB_INLINE mat4 quat_to_rotation_mat(quat q, vec3 center)
 
 LIB_INLINE quat quat_from_axis_angle(vec3 axis, float angle, u8 normalize)
 {
-  const float half_angle = 0.5f * angle;
-  float s = math_sin(half_angle);
-  float c = math_cos(half_angle);
-  
-  quat q = (quat){ {s * axis.x, s * axis.y, s * axis.z, c } };
-  if (normalize)
-  {
-    return quat_normalize(q);
-  }
+  //const float half_angle = 0.5f * angle;
+  //float s = math_sin(half_angle);
+  //float c = math_cos(half_angle);
+  //
+  //quat q;
+  //q.x = s * axis.x;
+  //q.x = s * axis.y;
+  //q.x = s * axis.z;
+  //q.x = c;
+
+  //if (normalize)
+  //{
+  //  return quat_normalize(q);
+  //}
+
+  //return q;
+
+  vec3 v = axis;
+  vec3_normalize(&v);
+  float sine = math_sin(angle);
+  quat q;
+  q.w = math_cos(angle);
+  q.x = v.x * sine;
+  q.y = v.y * sine;
+  q.z = v.z * sine;
   return q;
 }
 

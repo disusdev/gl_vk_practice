@@ -1,4 +1,3 @@
-#include <defines.h>
 
 // #define CVEC_STDLIB
 // #define CVEC_IMPLEMENTATION
@@ -7,6 +6,8 @@
 // #define CQUE_STDLIB
 // #define CQUE_IMPLEMENTATION
 // #include <containers/cque.h>
+
+#include <defines.h>
 
 #define CLST_STDLIB
 #define CLST_IMPLEMENTATION

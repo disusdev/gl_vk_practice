@@ -53,6 +53,24 @@ math_tan(float x)
 }
 
 float
+math_atan2(float x, float y)
+{
+  return atan2f(x, y);
+}
+
+float
+math_hypot(float p, float b)
+{
+  return hypotf(p, b);
+}
+
+float
+math_floor(float f)
+{
+  return floorf(f);
+}
+
+float
 math_acos(float x)
 {
   return acosf(x);

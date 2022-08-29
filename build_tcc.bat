@@ -7,7 +7,7 @@ echo +----------------------------+
 echo +   Compile simple C file    +
 echo +----------------------------+
 echo %2
-%CC% -o %SCRIPT_PATH%.bin\%1.exe %2 -I%SCRIPT_PATH%/shared -Wall -Wextra -std=c99
+%CC% -o %SCRIPT_PATH%.bin\%1.exe %2 -I%SCRIPT_PATH%/shared -I%SCRIPT_PATH%/external -DSTBI_NO_SIMD -lkernel32 -lshell32 -luser32 -lgdi32 -Wall -Wextra -std=c99
 IF %ERRORLEVEL% EQU 0 ( 
 echo +----------------------------+
 echo +           Output           +

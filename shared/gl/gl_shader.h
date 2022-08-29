@@ -105,7 +105,7 @@ gl_shader_create_from_source(GLenum type,
   
   if (length)
   {
-    printf("&s (File: %s)\n", buffer, debug_name);
+    printf("%s (File: %s)\n", buffer, debug_name);
     print_shader_src(text);
     assert(false);
   }

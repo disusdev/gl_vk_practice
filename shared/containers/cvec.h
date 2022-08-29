@@ -32,6 +32,8 @@ enum
 #define cvec_empty(vec)\
   (vec_size(vec) == 0)
 
+void* _cvec_resize(void* vec);
+
 void* _cvec_push(void* vec, const void* value_ptr);
 #define cvec_push(vec, value)do{\
   CVEC_ASSERT(sizeof(typeof(value)) == cvec_stride(vec));\
@@ -42,6 +44,13 @@ void* _cvec_create(const u64 length, const u64 stride);
 #define cvec_create(type)\
   (type*)_cvec_create(CVEC_DEFAULT_CAPACITY, sizeof(type))
 
+#define cvec_ncreate(type, size)\
+  (type*)_cvec_create(size, sizeof(type))
+
+#define cvec_resize(vec, size)do{\
+  ((u64*)vec)[CVEC_SIZE] = size;\
+  vec = _cvec_resize(vec);}while(0)
+
 void _cvec_destroy(void* vec);
 #define cvec_destroy(vec)\
   _cvec_destroy(vec)
@@ -49,8 +58,6 @@ void _cvec_destroy(void* vec);
 void _cvec_pop(void* vec, void* value_ptr);
 #define cvec_pop(vec, value_ptr)\
   _cvec_pop(vec, value_ptr)
-
-void* _cvec_resize(void* vec);
 
 u64 cvec_find(void* vec, const void* value_ptr);
 

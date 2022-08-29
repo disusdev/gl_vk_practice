@@ -57,5 +57,6 @@ workspace "project"
   architecture "x86_64"
 
 include("0_tutorial_cubemap/0_tutorial_cubemap.lua")
+include("tests/tests.lua")
 
 printf ("Generation finished.")
