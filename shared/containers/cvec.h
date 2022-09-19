@@ -30,22 +30,27 @@ enum
   ((vec) ? ((u64*)vec)[CVEC_STRIDE] : (u64)0)
 
 #define cvec_empty(vec)\
-  (vec_size(vec) == 0)
+  (cvec_size(vec) == 0)
 
 void* _cvec_resize(void* vec);
 
 void* _cvec_push(void* vec, const void* value_ptr);
 #define cvec_push(vec, value)do{\
-  CVEC_ASSERT(sizeof(typeof(value)) == cvec_stride(vec));\
-  typeof(value) temp = value;\
+  CVEC_ASSERT(sizeof(TYPEOF(value)) == cvec_stride(vec));\
+  TYPEOF(value) temp = value;\
   vec = _cvec_push(vec, &temp);}while(0)
 
 void* _cvec_create(const u64 length, const u64 stride);
 #define cvec_create(type)\
   (type*)_cvec_create(CVEC_DEFAULT_CAPACITY, sizeof(type))
 
+void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, b8 single);
+#define cvec_ncreate_set(type, size, ptr)\
+  (type*)_cvec_ncreate(size, sizeof(type), ptr, true)
+#define cvec_ncreate_copy(type, size, ptr)\
+  (type*)_cvec_ncreate(size, sizeof(type), ptr, false)
 #define cvec_ncreate(type, size)\
-  (type*)_cvec_create(size, sizeof(type))
+  (type*)_cvec_ncreate(size, sizeof(type), NULL, false)
 
 #define cvec_resize(vec, size)do{\
   ((u64*)vec)[CVEC_SIZE] = size;\
@@ -90,7 +95,7 @@ u64 cvec_find(void* vec, const void* value_ptr);
 #define CVEC_MEMSET(ptr, value, size) memset(ptr, value, size)
 #endif
 #ifndef CVEC_MEMCPY
-#define CVEC_MEMCPY(src, dst, size) memcpy(src, dst, size)
+#define CVEC_MEMCPY(dst, src, size) memcpy(dst, src, size)
 #endif
 #ifndef CVEC_MEMCMP
 #define CVEC_MEMCMP(b1, b2, size) memcmp(b1, b2, size)
@@ -109,7 +114,7 @@ u64 cvec_find(void* vec, const void* value_ptr);
 #define CVEC_MEMSET(ptr, value, size) no_memset_defined[-1]
 #endif
 #ifndef CVEC_MEMCPY
-#define CVEC_MEMCPY(src, dst, size) no_memcpy_defined[-1]
+#define CVEC_MEMCPY(dst, src, size) no_memcpy_defined[-1]
 #endif
 #ifndef CVEC_MEMCMP
 #define CVEC_MEMCMP(b1, b2, size) no_memcmp_defined[-1]
@@ -129,6 +134,37 @@ void* _cvec_create(const u64 length, const u64 stride)
   new_vec[CVEC_CAPACITY] = length;
   new_vec[CVEC_SIZE] = 0;
   new_vec[CVEC_STRIDE] = stride;
+  return (void*)new_vec;
+}
+
+void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, b8 single)
+{
+  const u64 header_size = CVEC_FIELD_LENGTH * sizeof(u64);
+  const u64 vec_size = length * stride;
+  u64* new_vec = CVEC_ALLOCATE(header_size + vec_size, MEM_TAG_CVEC);
+  CVEC_MEMSET(new_vec, 0, header_size + vec_size);
+  new_vec += CVEC_FIELD_LENGTH;
+  new_vec[CVEC_CAPACITY] = length;
+  new_vec[CVEC_SIZE] = length;
+  new_vec[CVEC_STRIDE] = stride;
+
+  if (ptr_values)
+  {
+    if (single)
+    {
+      u8* ptr = (u8*)new_vec;
+      for (u64 i = 0; i < length; i++)
+      {
+        CVEC_MEMCPY((void*)ptr, ptr_values, stride);
+        ptr += stride;
+      }
+    }
+    else
+    {
+      CVEC_MEMCPY((void*)new_vec, ptr_values, vec_size);
+    }
+  }
+
   return (void*)new_vec;
 }
 

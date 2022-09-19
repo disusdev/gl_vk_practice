@@ -37,53 +37,53 @@ math_rng_range(i32 min,
 float
 math_sin(float x)
 {
-  return sinf(x);
+  return (float)sin((double)x);
 }
 
 float
 math_cos(float x)
 {
-  return cosf(x);
+  return (float)cos((double)x);
 }
 
 float
 math_tan(float x)
 {
-  return tanf(x);
+  return (float)tan((double)x);
 }
 
 float
 math_atan2(float x, float y)
 {
-  return atan2f(x, y);
+  return (float)atan2((double)x, (double)y);
 }
 
 float
 math_hypot(float p, float b)
 {
-  return hypotf(p, b);
+  return (float)hypot((double)p, (double)b);
 }
 
 float
 math_floor(float f)
 {
-  return floorf(f);
+  return (float)floor((double)f);
 }
 
 float
 math_acos(float x)
 {
-  return acosf(x);
+  return (float)acos((double)x);
 }
 
 float
 math_sqrt(float x)
 {
-  return sqrtf(x);
+  return (float)sqrt((double)x);
 }
 
 float
 math_abs(float x)
 {
-  return fabsf(x);
+  return (float)fabs((double)x);
 }

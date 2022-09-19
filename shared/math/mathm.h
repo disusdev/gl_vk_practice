@@ -110,6 +110,11 @@ LIB_INLINE vec2 vec2_mul(vec2 vec_0, vec2 vec_1)
   return (vec2) { { vec_0.x* vec_1.x, vec_0.y* vec_1.y } };
 }
 
+LIB_INLINE vec2 vec2_mul_scalar(vec2 vec, f32 scalar)
+{
+  return (vec2) { { vec.x * scalar, vec.y * scalar } };
+}
+
 LIB_INLINE vec2 vec2_div(vec2 vec_0, vec2 vec_1)
 {
   return (vec2) { { vec_0.x / vec_1.x, vec_0.y / vec_1.y } };
@@ -170,77 +175,82 @@ LIB_INLINE vec3 vec3_create(float x, float y, float z)
 
 LIB_INLINE vec3 vec3_from_vec4(vec4 vec)
 {
-  return (vec3) { { vec.x, vec.y, vec.z } };
+  return (vec3) { vec.x, vec.y, vec.z };
 }
 
 LIB_INLINE vec4 vec3_to_vec4(vec3 vec, float w)
 {
-  return (vec4) { {vec.x, vec.y, vec.z, w } };
+  return (vec4) { vec.x, vec.y, vec.z, w };
 }
 
 LIB_INLINE vec3 vec3_zero()
 {
-  return (vec3) { {0.0f, 0.0f, 0.0f } };
+  return (vec3) { 0.0f, 0.0f, 0.0f };
 }
 
 LIB_INLINE vec3 vec3_one()
 {
-  return (vec3) { { 1.0f, 1.0f, 1.0f } };
+  return (vec3) { 1.0f, 1.0f, 1.0f };
 }
 
 LIB_INLINE vec3 vec3_up()
 {
-  return (vec3) { {0.0f, 1.0f, 0.0f } };
+  return (vec3) { 0.0f, 1.0f, 0.0f };
 }
 
 LIB_INLINE vec3 vec3_down()
 {
-  return (vec3) { {0.0f, -1.0f, 0.0f } };
+  return (vec3) { 0.0f, -1.0f, 0.0f };
 }
 
 LIB_INLINE vec3 vec3_left()
 {
-  return (vec3) { { -1.0f, 0.0f, 0.0f } };
+  return (vec3) { -1.0f, 0.0f, 0.0f };
 }
 
 LIB_INLINE vec3 vec3_right()
 {
-  return (vec3) { { 1.0f, 0.0f, 0.0f } };
+  return (vec3) { 1.0f, 0.0f, 0.0f };
 }
 
 LIB_INLINE vec3 vec3_forward()
 {
-  return (vec3) { { 0.0f, 0.0f, -1.0f } };
+  return (vec3) { 0.0f, 0.0f, -1.0f };
 }
 
 LIB_INLINE vec3 vec3_back()
 {
-  return (vec3) { {0.0f, 0.0f, 1.0f } };
+  return (vec3) { 0.0f, 0.0f, 1.0f };
 }
 
 LIB_INLINE vec3 vec3_add(vec3 vec_0, vec3 vec_1)
 {
-  return (vec3) { { vec_0.x + vec_1.x, vec_0.y + vec_1.y, vec_0.z + vec_1.z } };
+  return (vec3) { vec_0.x + vec_1.x, vec_0.y + vec_1.y, vec_0.z + vec_1.z };
 }
 
 LIB_INLINE vec3 vec3_sub(vec3 vec_0, vec3 vec_1)
 {
-  return (vec3) { { vec_0.x - vec_1.x, vec_0.y - vec_1.y, vec_0.z - vec_1.z } };
+  return (vec3) { vec_0.x - vec_1.x, vec_0.y - vec_1.y, vec_0.z - vec_1.z };
 }
 
 LIB_INLINE vec3 vec3_mul(vec3 vec_0, vec3 vec_1)
 {
-  return (vec3) { { vec_0.x* vec_1.x, vec_0.y* vec_1.y, vec_0.z* vec_1.z } };
+  return (vec3) { vec_0.x* vec_1.x, vec_0.y* vec_1.y, vec_0.z* vec_1.z };
 }
 
 LIB_INLINE vec3 vec3_mul_scalar(vec3 vec_0, float scalar)
 {
-  return (vec3) { { vec_0.x* scalar, vec_0.y* scalar, vec_0.z* scalar } };
+  return (vec3) { vec_0.x * scalar, vec_0.y * scalar, vec_0.z * scalar };
 }
 
 LIB_INLINE vec3 vec3_div(vec3 vec_0, vec3 vec_1)
 {
-  return (vec3) { { vec_0.x / vec_1.x, vec_0.y / vec_1.y, vec_0.z / vec_1.z } };
+  return (vec3) { vec_0.x / vec_1.x, vec_0.y / vec_1.y, vec_0.z / vec_1.z };
+}
+
+LIB_INLINE vec3 vec3_div_scalar(vec3 vec_0, float scalar)
+{
+  return (vec3) { vec_0.x / scalar, vec_0.y / scalar, vec_0.z / scalar };
 }
 
 LIB_INLINE float vec3_length_squared(vec3 vec)
@@ -468,6 +478,31 @@ LIB_INLINE mat4 mat4_mul(mat4 mat_0, mat4 mat_1)
   return out_mat;
 }
 
+LIB_INLINE mat4 mat4_mul_vec4(mat4 mat, vec4 vec)
+{
+  mat4 out_mat = mat4_identity();
+
+  const float* m0_ptr = mat.data;
+  const float* m1_ptr = vec.data;
+  float* dst_ptr = out_mat.data;
+
+  for (i32 i = 0; i < 4; i++)
+  {
+    // for (i32 j = 0; j < 4; j++)
+    {
+      *dst_ptr =
+        m0_ptr[0] * m1_ptr[0] +
+        m0_ptr[1] * m1_ptr[1] +
+        m0_ptr[2] * m1_ptr[2] +
+        m0_ptr[3] * m1_ptr[3];
+      dst_ptr++;
+    }
+    m0_ptr += 4;
+  }
+
+  return out_mat;
+}
+
 LIB_INLINE mat4 mat4_ortho(float left, float right, float bottom, float top, float near, float far)
 {
   mat4 out_mat = mat4_identity();
@@ -655,39 +690,97 @@ LIB_INLINE mat4 mat4_scale_scalar(float scale)
 LIB_INLINE mat4 mat4_euler_x(float angle_rad)
 {
   mat4 out_mat = mat4_identity();
-  float c = math_cos(angle_rad);
-  float s = math_sin(angle_rad);
-  
-  out_mat.data[5] = c;
-  out_mat.data[6] = s;
-  out_mat.data[9] = -s;
-  out_mat.data[10] = c;
+  //float c = math_cos(angle_rad);
+  //float s = math_sin(angle_rad);
+
+  //out_mat.data[5] = c;
+  //out_mat.data[6] = -s;
+  //out_mat.data[9] = s;
+  //out_mat.data[10] = c;
+
+  float c = cosf(angle_rad);
+  float s = sinf(angle_rad);
+
+  float* m = out_mat.data;
+
+  float m1 = m[1], m2 = m[2],
+    m5 = m[5], m6 = m[6],
+    m9 = m[9], m10 = m[10],
+    m13 = m[13], m14 = m[14];
+
+  m[1] = m1 * c + m2 * -s;
+  m[2] = m1 * s + m2 * c;
+  m[5] = m5 * c + m6 * -s;
+  m[6] = m5 * s + m6 * c;
+  m[9] = m9 * c + m10 * -s;
+  m[10] = m9 * s + m10 * c;
+  m[13] = m13 * c + m14 * -s;
+  m[14] = m13 * s + m14 * c;
+
   return out_mat;
 }
 
 LIB_INLINE mat4 mat4_euler_y(float angle_rad)
 {
   mat4 out_mat = mat4_identity();
-  float c = math_cos(angle_rad);
-  float s = math_sin(angle_rad);
-  
-  out_mat.data[0] = c;
-  out_mat.data[2] = -s;
-  out_mat.data[8] = s;
-  out_mat.data[10] = c;
+  //float c = math_cos(angle_rad);
+  //float s = math_sin(angle_rad);
+  //
+  //out_mat.data[0] = c;
+  //out_mat.data[2] = s;
+  //out_mat.data[8] = -s;
+  //out_mat.data[10] = c;
+
+  float c = cosf(angle_rad);
+  float s = sinf(angle_rad);
+
+  float* m = out_mat.data;
+  float m0 = m[0], m2 = m[2],
+    m4 = m[4], m6 = m[6],
+    m8 = m[8], m10 = m[10],
+    m12 = m[12], m14 = m[14];
+
+  m[0] = m0 * c + m2 * s;
+  m[2] = m0 * -s + m2 * c;
+  m[4] = m4 * c + m6 * s;
+  m[6] = m4 * -s + m6 * c;
+  m[8] = m8 * c + m10 * s;
+  m[10] = m8 * -s + m10 * c;
+  m[12] = m12 * c + m14 * s;
+  m[14] = m12 * -s + m14 * c;
+
   return out_mat;
 }
 
 LIB_INLINE mat4 mat4_euler_z(float angle_rad)
 {
   mat4 out_mat = mat4_identity();
-  float c = math_cos(angle_rad);
-  float s = math_sin(angle_rad);
-  
-  out_mat.data[0] = c;
-  out_mat.data[1] = s;
-  out_mat.data[4] = -s;
-  out_mat.data[5] = c;
+  //float c = math_cos(angle_rad);
+  //float s = math_sin(angle_rad);
+  //
+  //out_mat.data[0] = c;
+  //out_mat.data[1] = -s;
+  //out_mat.data[4] = s;
+  //out_mat.data[5] = c;
+
+  float c = cosf(angle_rad);
+  float s = sinf(angle_rad);
+
+  float* m = out_mat.data;
+  float m0 = m[0], m1 = m[1],
+    m4 = m[4], m5 = m[5],
+    m8 = m[8], m9 = m[9],
+    m12 = m[12], m13 = m[13];
+
+  m[0] = m0 * c + m1 * -s;
+  m[1] = m0 * s + m1 * c;
+  m[4] = m4 * c + m5 * -s;
+  m[5] = m4 * s + m5 * c;
+  m[8] = m8 * c + m9 * -s;
+  m[9] = m8 * s + m9 * c;
+  m[12] = m12 * c + m13 * -s;
+  m[13] = m12 * s + m13 * c;
+
   return out_mat;
 }
 
@@ -698,6 +791,7 @@ LIB_INLINE mat4 mat4_euler_xyz(float x_rad, float y_rad, float z_rad)
   mat4 rz = mat4_euler_z(z_rad);
   mat4 out_mat = mat4_mul(rx, ry);
   out_mat = mat4_mul(out_mat, rz);
+
   return out_mat;
 }
 
@@ -771,14 +865,29 @@ LIB_INLINE quat quat_identity()
   return q;
 }
 
-LIB_INLINE float quat_normal(quat q)
+LIB_INLINE quat quat_zero()
+{
+  quat q;
+  q.x = 0.0f;
+  q.y = 0.0f;
+  q.z = 0.0f;
+  q.w = 0.0f;
+  return q;
+}
+
+LIB_INLINE f32 quat_normal(quat q)
 {
   return math_sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
 
 LIB_INLINE quat quat_normalize(quat q)
 {
-  float normal = 1.0f / quat_normal(q);
+  const float EPSILON = 0.00001f;
+  float d = q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z;
+  if (d < EPSILON)
+    return q;
+
+  f32 normal = 1.0f / quat_normal(q);
   q.x = q.x * normal;
   q.y = q.y * normal;
   q.z = q.z * normal;
@@ -793,6 +902,11 @@ LIB_INLINE quat quat_conjugate(quat q)
 
 LIB_INLINE quat quat_inverse(quat q)
 {
+  const float EPSILON = 0.00001f;
+  float d = q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z;
+  if (d < EPSILON)
+    return q;
+
   return quat_normalize(quat_conjugate(q));
 }
 
@@ -943,13 +1057,44 @@ LIB_INLINE quat quat_from_axis_angle(vec3 axis, float angle, u8 normalize)
 
   vec3 v = axis;
   vec3_normalize(&v);
-  float sine = math_sin(angle);
+  float sine = math_sin(angle * 0.5f);
   quat q;
-  q.w = math_cos(angle);
+  q.w = math_cos(angle * 0.5f);
   q.x = v.x * sine;
   q.y = v.y * sine;
   q.z = v.z * sine;
   return q;
+}
+
+LIB_INLINE quat quat_from_euler(vec3 euler_angles)
+{
+  //f32 c1 = math_cos(euler_angles.x * 0.5f);
+  //f32 c2 = math_cos(euler_angles.y * 0.5f);
+  //f32 c3 = math_cos(euler_angles.z * 0.5f);
+  //f32 s1 = math_cos(euler_angles.x * 0.5f);
+  //f32 s2 = math_cos(euler_angles.y * 0.5f);
+  //f32 s3 = math_cos(euler_angles.z * 0.5f);
+  //f32 x = s1 * c2 * c3 + c1 * s2 * s3;
+  //f32 y = c1 * s2 * c3 - s1 * c2 * s3;
+  //f32 z = c1 * c2 * s3 + s1 * s2 * c3;
+  //f32 w = c1 * c2 * c3 - s1 * s2 * s3;
+
+  //return (quat) { x, y, z, w };
+
+  quat qx = quat_from_axis_angle((vec3) { 1.0f, 0.0f, 0.0f }, euler_angles.x, false);
+  quat qy = quat_from_axis_angle((vec3) { 0.0f, 1.0f, 0.0f }, euler_angles.y, false);
+  quat qz = quat_from_axis_angle((vec3) { 0.0f, 0.0f, 1.0f }, euler_angles.z, false);
+
+  return quat_mul(quat_mul(qx, qy), qz);
+  // vec3 v = axis;
+  // vec3_normalize(&v);
+  // float sine = math_sin(angle);
+  // quat q;
+  // q.w = math_cos(angle);
+  // q.x = v.x * sine;
+  // q.y = v.y * sine;
+  // q.z = v.z * sine;
+  // return q;
 }
 
 LIB_INLINE quat quat_slerp(quat q_0, quat q_1, float precentage)
@@ -1000,6 +1145,90 @@ LIB_INLINE quat quat_slerp(quat q_0, quat q_1, float precentage)
         (v0.w * s0) + (v1.w * s1)
     }
   };
+}
+
+quat
+quat_look_at(vec3 pos, vec3 target, vec3 up)
+{
+  vec3 toVector = vec3_normalized((vec3_sub(target, pos)));
+  //vec3 rotAxis = vec3_normalize(vec3_cross(front, toVector));
+  //if (rotAxis.squaredNorm() == 0)
+  vec3 rotAxis = up;
+  f32 dot = vec3_dot(vec3_forward(), toVector);
+  f32 ang = math_acos(dot);
+  return quat_from_axis_angle(rotAxis, ang, false);
+
+  //// turn vectors into unit vectors 
+  //vec3 n1 = vec3_normalized( vec3_sub(current, pos) );
+  //vec3 n2 = vec3_normalized( vec3_sub(target, pos) );
+  //f32 d = vec3_dot(n1, n2);// sfvec3f.dot(n1, n2);
+  //// if no noticable rotation is available return zero rotation
+  //// this way we avoid Cross product artifacts 
+  //if (d > 0.9998) return (quat) { 0, 0, 1, 0 };
+  //// in this case there are 2 lines on the same axis 
+  //if (d < -0.9998)
+  //{
+  //  n1 = n1.Rotx(0.5f);
+  //  // there are an infinite number of normals 
+  //  // in this case. Anyone of these normals will be 
+  //  // a valid rotation (180 degrees). so rotate the curr axis by 0.5 radians this way we get one of these normals 
+  //}
+  //vec3 axis = n1;
+
+  //axis = vec3_cross(axis, n2);
+  // axis.cross(n2);
+
+  //
+
+  //quat pointToTarget = (quat){ 1.0 + d, axis.x, axis.y, axis.z };
+  //pointToTarget = quat_normalize(pointToTarget);
+  //// now twist around the target vector, so that the 'up' vector points along the z axis
+  //mat4 projectionMatrix = mat4_identity();
+  //double a = pointToTarget.x;
+  //double b = pointToTarget.y;
+  //double c = pointToTarget.z;
+  //projectionMatrix.data[0] = b * b + c * c;
+  //projectionMatrix.data[1] = -a * b;
+  //projectionMatrix.data[2] = -a * c;
+  //projectionMatrix.data[4] = -b * a;
+  //projectionMatrix.data[5] = a * a + c * c;
+  //projectionMatrix.data[6] = -b * c;
+  //projectionMatrix.data[8] = -c * a;
+  //projectionMatrix.data[9] = -c * b;
+  //projectionMatrix.data[10] = a * a + b * b;
+  //vec3 upProjected = projectionMatrix.transform(up);
+  //vec3 yaxisProjected = projectionMatrix.transform(new sfvec(0, 1, 0);
+  //d = sfvec3f.dot(upProjected, yaxisProjected);
+  //// so the axis of twist is n2 and the angle is arcos(d)
+  ////convert this to quat as follows   
+  //double s = Math.sqrt(1.0 - d * d);
+  //sfquat twist = new sfquat(d, n2 * s, n2 * s, n2 * s);
+  //return sfquat.mul(pointToTarget, twist);
+
+  //
+
+  //quat q = quat_identity();
+
+  //vec3 to_z = dir;
+  //vec3_normalize(&to_z);
+  //vec3 to_x = vec3_mul(up, to_z);
+  //vec3_normalize(&to_z);
+  //vec3 to_y = vec3_mul(to_z, to_x);
+  //vec3_normalize(&to_z);
+  ////----------------------------------------------
+  //// let's think that from is a unit vectors
+  //vec3 from_z = from_dir;
+  ////from_z.norm(); if not unit
+  //vec3 from_x = vec3_mul(up, from_z);
+  ////from_x.norm(); if not unit
+  //vec3 from_y = vec3_mul(from_z, from_x);
+
+  //vec3 cross_sum = vec3_add( vec3_add(vec3_cross(from_x, to_x), vec3_cross(from_y, to_y)), vec3_cross(from_z, to_z));
+  //float dot_sum = vec3_dot(from_x, to_x) + vec3_dot(from_y, to_y) + vec3_dot(from_z, to_z);
+  //q = (quat){ cross_sum.x, cross_sum.y, cross_sum.z, dot_sum + 1.0f };
+  //q = quat_normalize(q);
+
+  //return q;
 }
 
 LIB_INLINE float deg_to_rad(float degrees)

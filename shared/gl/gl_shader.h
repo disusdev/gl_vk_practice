@@ -93,6 +93,8 @@ gl_shader_create_from_source(GLenum type,
   gl_shader s;
   s.type = type;
   s.handle = glCreateShader(type);
+  
+
   glShaderSource(s.handle, 1, &text, NULL);
   glCompileShader(s.handle);
 

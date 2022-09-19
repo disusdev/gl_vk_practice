@@ -149,14 +149,12 @@ t_cbitmap* cbitmap_create_from_data(int w,
   bitmap->format = format;
 	if (format)
 	{
-		bitmap->data = cvec_ncreate(f32, w * h * d * comp);
-		cvec_resize(bitmap->data, cvec_capacity(bitmap->data));
+		bitmap->data = cvec_ncreate(f32, (w * h * d * comp));
 		CBITMAP_MEMCPY(bitmap->data, ptr, w * h * d * comp * sizeof(f32));
 	}
 	else
 	{
-		bitmap->data = cvec_ncreate(u8, w * h * d * comp);
-		cvec_resize(bitmap->data, cvec_capacity(bitmap->data));
+		bitmap->data = cvec_ncreate(u8, (w * h * d * comp));
 		CBITMAP_MEMCPY(bitmap->data, ptr, w * h * d * comp);
 	}
   return bitmap;

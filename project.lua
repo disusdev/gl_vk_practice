@@ -57,6 +57,9 @@ workspace "project"
   architecture "x86_64"
 
 include("0_tutorial_cubemap/0_tutorial_cubemap.lua")
+include("1_tutorial_vk_glslang/1_tutorial_vk_glslang.lua")
+include("2_tutorial_gl_camera/2_tutorial_gl_camera.lua")
+include("3_tutorial_vk_camera/3_tutorial_vk_camera.lua")
 include("tests/tests.lua")
 
 printf ("Generation finished.")

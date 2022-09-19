@@ -19,12 +19,15 @@ typedef double f64;
 typedef int b32;
 typedef _Bool b8;
 
-#if defined(__clang__) || defined(__gcc__)
+#if defined(__clang__) || defined(__gcc__) || defined(__GNUC__)
 #define STATIC_ASSERT _Static_assert
+#define TYPEOF(var) __typeof__(var)
 #elif defined(__TINYC__)
 #define STATIC_ASSERT(COND,MSG) typedef char static_assertion_##MSG[(COND)?1:-1]
+#define TYPEOF(var) typeof(var)
 #else
 #define STATIC_ASSERT static_assert
+#define TYPEOF(var) typeof(var)
 #endif
 
 #ifdef __TINYC__
@@ -99,6 +102,20 @@ range;
 #define KiB (1024)
 
 #define CLAMP(value_, min_, max_) (value_ <= min_) ? min_ : (value_ >= max_) ? max_ : value_;
+#define MIN(v1_, v2_) (v1_ < v2_ ? v1_ : v2_)
+#define MAX(v1_, v2_) (v1_ > v2_ ? v1_ : v2_)
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+
+#define print_bits(x)\
+do\
+{\
+  u64 a__ = (x);\
+  u64 bits__ = sizeof(x) * 8;\
+  printf(#x ": ");\
+  while (bits__--) putchar(a__ &(1ULL << bits__) ? '1' : '0');\
+  putchar('\n');\
+} while (0)
 
 #if defined(__clang__) || defined(__gcc__)
 #define LIB_INLINE __attribute__((always_inline)) inline
