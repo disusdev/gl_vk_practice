@@ -1,7 +1,6 @@
 #ifndef __GL_SHADER_H__
 #define __GL_SHADER_H__
 
-// #include <external/glad.h>
 #include "../tools.h"
 #include <assert.h>
 

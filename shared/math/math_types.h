@@ -109,4 +109,12 @@ transform
 }
 transform;
 
+typedef struct
+bbox
+{
+  vec3 min;
+  vec3 max;
+}
+bbox;
+
 #endif

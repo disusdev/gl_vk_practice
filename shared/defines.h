@@ -17,7 +17,12 @@ typedef float f32;
 typedef double f64;
 
 typedef int b32;
+
+#ifndef __cplusplus
 typedef _Bool b8;
+#else
+typedef bool b8;
+#endif
 
 #if defined(__clang__) || defined(__gcc__) || defined(__GNUC__)
 #define STATIC_ASSERT _Static_assert
@@ -30,6 +35,7 @@ typedef _Bool b8;
 #define TYPEOF(var) typeof(var)
 #endif
 
+#ifndef __cplusplus
 #ifdef __TINYC__
 STATIC_ASSERT(sizeof(u8)  == 1, u8_expected_1_byte);
 STATIC_ASSERT(sizeof(u16) == 2, u16_expected_2_byte);
@@ -56,6 +62,7 @@ STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes.");
 
 STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes.");
 STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes.");
+#endif
 #endif
 
 typedef struct

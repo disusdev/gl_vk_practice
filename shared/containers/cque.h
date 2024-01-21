@@ -62,10 +62,14 @@ enum
 #define cque_empty(que)\
   (que_size(que) == 0)
 
+void _cque_at(void* que, u64 index, const void* value_ptr);
+#define cque_at(que, index, value_ptr)\
+  _cque_at(que, index, value_ptr)
+
 void* _cque_push(void* que, const void* value_ptr);
 #define cque_push(que, value)do{\
-  CQUE_ASSERT(sizeof(typeof(value)) == cque_stride(que));\
-  typeof(value) temp = value;\
+  CQUE_ASSERT(sizeof(TYPEOF(value)) == cque_stride(que));\
+  TYPEOF(value) temp = value;\
   que = _cque_push(que, &temp);}while(0)
 
 void* _cque_create(const u64 length, const u64 stride);
@@ -214,6 +218,21 @@ void* _cque_resize(void* que)
   ((u64*)temp)[CQUE_OFFSET] = offset;
   _cque_destroy(que);
   return temp;
+}
+
+void _cque_at(void* que, u64 index, const void* value_ptr)
+{
+  CQUE_ASSERT(que);
+  const u64 length = cque_size(que);
+  const u64 stride = cque_stride(que);
+  const u64 offset = cque_offset(que);
+
+  u64 new_inedx = (offset + index) % length;
+
+  u64 addr = (u64)que;
+  addr += (new_inedx * stride);
+
+  if(value_ptr) CQUE_MEMCPY(value_ptr, (void*)addr, stride);
 }
 
 #endif

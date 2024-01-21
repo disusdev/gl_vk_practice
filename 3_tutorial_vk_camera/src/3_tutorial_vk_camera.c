@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <float.h>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <volk/volk.h>
@@ -14,6 +15,10 @@
 #define CVEC_IMPLEMENTATION
 #define CVEC_STDLIB
 #include <containers/cvec.h>
+
+#define CQUE_IMPLEMENTATION
+#define CQUE_STDLIB
+#include <containers/cque.h>
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
@@ -36,14 +41,22 @@
 #define CBITMAP_IMPLEMENTATION
 #include <resource/cbitmap.h>
 
+#include <perf/fps_counter.h>
+
 #include <tools.h>
 #include <resource/model_loader.h>
 #include <vk/vk_shader_compiler.h>
 #include <vk/vk_core.h>
 
+#include <vk/renderers/vk_base_renderer.h>
+
 #include <vk/renderers/vk_model_renderer.h>
 #include <vk/renderers/vk_clear_renderer.h>
 #include <vk/renderers/vk_cubemap_renderer.h>
+#include <vk/renderers/vk_final_renderer.h>
+#include <vk/renderers/vk_canvas_renderer.h>
+
+#include <perf/fps_graph.h>
 
 typedef struct
 t_button_state
@@ -85,6 +98,9 @@ t_input_state g_input = { 0 };
 
 t_camera g_camera;
 
+t_fps_counter g_fps_counter;
+t_fps_graph g_fps_graph;
+
 typedef struct
 t_uniform_buffer
 {
@@ -98,9 +114,12 @@ u64 index_buffer_size;
 vulkan_instance vk;
 vulkan_render_device vk_dev;
 
-t_model_renderer* model_renderer;
-t_clear_renderer* clear_renderer;
-t_cubemap_renderer* cube_renderer;
+t_model_renderer model_renderer;
+t_clear_renderer clear_renderer;
+t_cubemap_renderer cube_renderer;
+t_final_renderer final_renderer;
+t_canvas_renderer canvas2d_renderer;
+t_canvas_renderer canvas_renderer;
 
 typedef struct
 t_vulkan_state
@@ -218,11 +237,24 @@ b8 vulkan_init()
 																								 "data/rubber_duck/textures/Duck_baseColor.png",
 																								 (u32)sizeof(mat4));
 	clear_renderer = clear_renderer_create(&vk_dev,
-																				 model_renderer->base_renderer->depth_texture);
+																				 model_renderer.base->depth_texture);
 
 	cube_renderer = cubemap_renderer_create(&vk_dev,
-																					model_renderer->base_renderer->depth_texture,
+																					model_renderer.base->depth_texture,
 																					"data/SnowPano_4k_Ref.hdr");
+
+	final_renderer = final_renderer_create(&vk_dev, model_renderer.base->depth_texture);
+
+	vulkan_image depth_zero = (vulkan_image)
+	{
+		VK_NULL_HANDLE,
+		VK_NULL_HANDLE,
+		VK_NULL_HANDLE
+	};
+
+	canvas2d_renderer = canvas_renderer_create(&vk_dev, depth_zero);
+
+	canvas_renderer = canvas_renderer_create(&vk_dev, model_renderer.base->depth_texture);
 
 	return VK_SUCCESS;
 }
@@ -242,20 +274,39 @@ update3D(u32 imageIndex)
 	// mat4 m_cube = mat4_translation(g_camera.position);// mat4_mul(quat_to_mat4(q), mat4_translation(pos));
 	mat4 m_cube = mat4_mul(mat4_scale((vec3) { 50.0f, 50.0f, 50.0f }), mat4_translation(g_camera.position));
 
-	mat4 p = mat4_persp(DEG2RAD * 90.0f, ratio, 0.1f, 1000.0f);
+	//mat4 p = mat4_persp(DEG2RAD * 90.0f, ratio, 0.1f, 1000.0f);
+	mat4 p = camera_get_projection_matrix(&g_camera, ratio, false, true);
 
 	mat4 view = camera_get_view_matrix(&g_camera);
 	mat4 mtx = mat4_mul(mat4_mul(m1, view), p);
 	mat4 mtx_cube = mat4_mul(mat4_mul(m_cube, view), p);
 
+	mat4 ortho = mat4_ortho(0.0f, 1.0f, 1.0f, 0.0f, -100.0f, 100.0f);
+
+	mat4 p_v = mat4_mul(view, p);
+
 	{
-		cubemap_renderer_update_uniform_buffer(cube_renderer, &vk_dev, imageIndex, &mtx_cube);
-		model_renderer_update_uniform_buffer(model_renderer, &vk_dev, imageIndex, (void*)&mtx, sizeof(mat4));
+		cubemap_renderer_update_uniform_buffer(&cube_renderer, &vk_dev, imageIndex, &mtx_cube);
+		canvas_renderer_update_uniform_buffer(&canvas2d_renderer, &vk_dev, &ortho, 0.0f, imageIndex);
+		canvas_renderer_update_uniform_buffer(&canvas_renderer, &vk_dev, &p_v, 0.0f, imageIndex);
+		model_renderer_update_uniform_buffer(&model_renderer, &vk_dev, imageIndex, (void*)&mtx, sizeof(mat4));
 	}
 }
 
+void
+update2D(u32 imageIndex)
+{
+	canvas_renderer_clear(&canvas2d_renderer);
+	vec4 color = (vec4)
+	{
+		0.0f, 0.0f, 1.0f, 1.0f
+	};
+	fps_graph_render(&g_fps_graph, &canvas2d_renderer, &color);
+	canvas_renderer_update_buffer(&canvas2d_renderer, &vk_dev, imageIndex);
+}
+
 b8
-drawFrame(/* renderers */)
+drawFrame(void** renderers, int renderers_count)
 {
 	u32 imageIndex = 0;
 	if (vkAcquireNextImageKHR(vk_dev.device, vk_dev.swapchain, 0, vk_dev.semaphore, VK_NULL_HANDLE, &imageIndex) != VK_SUCCESS)
@@ -264,6 +315,7 @@ drawFrame(/* renderers */)
 	VK_CHECK(vkResetCommandPool(vk_dev.device, vk_dev.command_pool, 0));
 
 	update3D(imageIndex);
+	update2D(imageIndex);
 
 	VkCommandBuffer commandBuffer = vk_dev.command_buffers[imageIndex];
 
@@ -277,9 +329,11 @@ drawFrame(/* renderers */)
 
 	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &bi));
 
-	clear_renderer_fill_command_buffer(clear_renderer, commandBuffer, imageIndex);
-	cubemap_renderer_fill_command_buffer(cube_renderer, commandBuffer, imageIndex);
-	model_renderer_fill_command_buffer(model_renderer, commandBuffer, imageIndex);
+	for (u64 i = 0; i < renderers_count; i++)
+	{
+		t_base_renderer* base = *(t_base_renderer**)renderers[i];
+		base->fill_command_buffer(renderers[i], commandBuffer, imageIndex);
+	}
 
 	VK_CHECK(vkEndCommandBuffer(commandBuffer));
 
@@ -319,14 +373,17 @@ drawFrame(/* renderers */)
 
 void vulkan_term()
 {
-	cubemap_renderer_destroy(cube_renderer);
-	cube_renderer = NULL;
+	final_renderer_destroy(&final_renderer);
 
-	clear_renderer_destroy(clear_renderer);
-	clear_renderer = NULL;
+	canvas_renderer_destroy(&canvas2d_renderer);
 
-	model_renderer_destroy(model_renderer);
-	model_renderer = NULL;
+	canvas_renderer_destroy(&canvas_renderer);
+
+	cubemap_renderer_destroy(&cube_renderer);
+
+	clear_renderer_destroy(&clear_renderer);
+
+	model_renderer_destroy(&model_renderer);
 
   vulkan_destroy_render_device(&vk_dev);
 
@@ -375,9 +432,36 @@ int main()
 	g_camera.position = (vec3){ 0.0f, 0.0f, 0.0f };
 	g_camera.forward = vec3_forward();
 
+	g_fps_counter = fps_counter_create(0.01666f);
+	// g_fps_counter.print_fps = true;
+	g_fps_graph = fps_graph_create(256);
+
   vulkan_init();
 
-  printf("vulkan_inited();\n");
+	{
+		vec3 o = (vec3){ 0.0f, -0.5f, -4.0f };
+		vec3 v1 = (vec3){ 1.0f, 0.0f, 0.0f };
+		vec3 v2 = (vec3){ 0.0f, 0.0f, 1.0f };
+		vec4 color = (vec4){ 1.0f, 0.0f, 0.0f, 1.0f };
+		vec4 outline = (vec4){ 0.0f, 1.0f, 0.0f, 1.0f };
+
+		canvas_renderer_plane3d(&canvas_renderer, &o, &v1, &v2, 40, 40, 10.0f, 10.0f, &color, &outline);
+
+		for (size_t i = 0; i < cvec_size(vk_dev.swapchain_images); i++)
+		{
+			canvas_renderer_update_buffer(&canvas_renderer, &vk_dev, i);
+		}
+	}
+
+	void* renderers[] =
+	{
+		&clear_renderer,
+		&cube_renderer,
+		&canvas_renderer,
+		&model_renderer,
+		&canvas2d_renderer,
+		&final_renderer
+	};
 
 	f64 timeStamp = glfwGetTime();
 	f32 deltaSeconds = 0.0f;
@@ -423,7 +507,12 @@ int main()
 
 		camera_update(&g_camera, &g_input, deltaSeconds);
 
-		drawFrame();
+		const b8 frameRendered = drawFrame(renderers, ARRAY_SIZE(renderers));
+
+		if (fps_counter_update(&g_fps_counter, deltaSeconds, frameRendered))
+		{
+			fps_graph_add_point(&g_fps_graph, g_fps_counter.fps);
+		}
 	}
 
   vulkan_term();

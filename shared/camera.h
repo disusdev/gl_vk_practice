@@ -44,8 +44,8 @@ camera_update(t_camera* ptr_camera, t_input_state* ptr_input_state, f64 delta)
 {
 	f32 cam_vel = 10.0f + input_get_key(ptr_input_state, KEY_CODE_SHIFT) * 10.0f;
 
-	ptr_camera->yaw -= ptr_input_state->rotation_delta.x * DEG2RAD * 3.0f * (f32)delta;
-	ptr_camera->pitch -= ptr_input_state->rotation_delta.y * DEG2RAD * 2.0f * (f32)delta;
+	ptr_camera->yaw -= ptr_input_state->rotation_delta.x * DEG2RAD * 0.006f;// * (f32)delta;
+	ptr_camera->pitch -= ptr_input_state->rotation_delta.y * DEG2RAD * 0.004f;// * (f32)delta;
 
 	ptr_camera->pitch = CLAMP(ptr_camera->pitch, -90 * DEG2RAD, 90 * DEG2RAD);
 
@@ -82,25 +82,29 @@ camera_get_view_matrix(t_camera* ptr_camera)
 
 	ptr_camera->view_mat = mat4_mul(translate, rotate);
 
-	//view = mat4_inverse(view);
+	// ptr_camera->view_mat = mat4_inverse(ptr_camera->view_mat);
 	return ptr_camera->view_mat;
 }
 
 mat4
 camera_get_projection_matrix(t_camera* ptr_camera,
-															 f32 ratio,
-															 b8 reverse)
+														 f32 ratio,
+														 f32 fov,
+														 b8 reverse,
+														 b8 inverse)
 {
 	if (reverse)
 	{
-		mat4 pro = mat4_persp(DEG2RAD * 75.f, ratio, 5000.0f, 0.1f);
-		pro.data[5] *= -1;
+		mat4 pro = mat4_persp(DEG2RAD * fov, ratio, 5000.0f, 0.1f);
+		if (inverse)
+			pro.data[5] *= -1;
 		return pro;
 	}
 	else
 	{
-		mat4 pro = mat4_persp(DEG2RAD * 75.f, ratio, 0.1f, 5000.0f);
-		//pro.data[5] *= -1;
+		mat4 pro = mat4_persp(DEG2RAD * fov, ratio, 0.1f, 5000.0f);
+		if (inverse)
+			pro.data[5] *= -1;
 		return pro;
 	}
 }

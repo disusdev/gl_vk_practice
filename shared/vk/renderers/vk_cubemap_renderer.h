@@ -1,11 +1,9 @@
-#ifndef __VK_CUBEMAP_RENDERER__
-#define __VK_CUBEMAP_RENDERER__
+#ifndef __VK_CUBEMAP_RENDERER_H__
+#define __VK_CUBEMAP_RENDERER_H__
 
 #include <defines.h>
 
 #include <resource/cbitmap.h>
-
-#include "vk_base_renderer.h"
 
 typedef struct
 t_cubemap_renderer
@@ -15,22 +13,6 @@ t_cubemap_renderer
   VkSampler texture_sampler;
 }
 t_cubemap_renderer;
-
-static void
-float24to32(int w,
-            int h,
-            const float* img24,
-            float *img32)
-{
-	const int numPixels = w * h;
-	for (int i = 0; i != numPixels; i++)
-	{
-		*img32++ = *img24++;
-		*img32++ = *img24++;
-		*img32++ = *img24++;
-		*img32++ = 1.0f;
-	}
-}
 
 b8
 create_cube_texture_image(vulkan_render_device* vkDev,
@@ -132,21 +114,35 @@ cubemap_renderer_create_descriptor_set(t_cubemap_renderer* cubemap_renderer,
 	return true;
 }
 
-t_cubemap_renderer*
+static void
+cubemap_renderer_fill_command_buffer(t_cubemap_renderer* cube_renderer,
+                                     VkCommandBuffer commandBuffer,
+                                     u64 currentImage)
+{
+  base_renderer_begin_render_pass(cube_renderer->base, commandBuffer, currentImage);
+
+	vkCmdDraw(commandBuffer, 36, 1, 0, 0);
+
+	vkCmdEndRenderPass(commandBuffer);
+}
+
+t_cubemap_renderer
 cubemap_renderer_create(vulkan_render_device* vkDev,
                         vulkan_image inDepthTexture,
                         const char* textureFile)
 {
-  t_cubemap_renderer* cubemap_renderer = malloc(sizeof(t_cubemap_renderer));
-  memset(cubemap_renderer, 0, sizeof(t_cubemap_renderer));
+  t_cubemap_renderer cubemap_renderer = { 0 };
 
-  cubemap_renderer->base = base_renderer_create(vkDev, inDepthTexture);
+  cubemap_renderer.base = base_renderer_create(vkDev, inDepthTexture);
+  cubemap_renderer.base->fill_command_buffer = &cubemap_renderer_fill_command_buffer;
+
+  t_base_renderer* base = cubemap_renderer.base;
 
   // Resource loading
-  create_cube_texture_image(vkDev, textureFile, &cubemap_renderer->texture.handle, &cubemap_renderer->texture.memory, NULL, NULL);
+  create_cube_texture_image(vkDev, textureFile, &cubemap_renderer.texture.handle, &cubemap_renderer.texture.memory, NULL, NULL);
 
-  vulkan_create_image_view(vkDev->device, cubemap_renderer->texture.handle, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, &cubemap_renderer->texture.view, VK_IMAGE_VIEW_TYPE_CUBE, 6, 1);
-  vulkan_create_texture_sampler(vkDev->device, &cubemap_renderer->texture_sampler, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+  vulkan_create_image_view(vkDev->device, cubemap_renderer.texture.handle, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, &cubemap_renderer.texture.view, VK_IMAGE_VIEW_TYPE_CUBE, 6, 1);
+  vulkan_create_texture_sampler(vkDev->device, &cubemap_renderer.texture_sampler, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
   RenderPassCreateInfo render_pass_info =
   {
@@ -163,24 +159,24 @@ cubemap_renderer_create(vulkan_render_device* vkDev,
 
   if (!vulkan_create_color_and_depth_render_pass(vkDev,
                                                  true,
-                                                 &cubemap_renderer->base->render_pass,
+                                                 &base->render_pass,
                                                  &render_pass_info,
                                                  VK_FORMAT_B8G8R8A8_UNORM) ||
-      !base_renderer_create_uniform_buffers(cubemap_renderer->base,
+      !base_renderer_create_uniform_buffers(base,
                                             vkDev,
                                             sizeof(mat4)) ||
       !vulkan_create_color_and_depth_framebuffers(vkDev,
-																						      cubemap_renderer->base->render_pass,
-																						      cubemap_renderer->base->depth_texture.view,
-																						      &cubemap_renderer->base->swapchain_framebuffers) ||
-      !vulkan_create_descriptor_pool(vkDev, 1, 0, 1, &cubemap_renderer->base->descriptor_pool) ||
-      !cubemap_renderer_create_descriptor_set(cubemap_renderer, vkDev, sizeof(mat4)) ||
-      !vulkan_create_pipeline_layout(vkDev->device, cubemap_renderer->base->descriptor_set_layout, &cubemap_renderer->base->pipeline_layout) ||
-      !vulkan_create_graphics_pipeline(vkDev, cubemap_renderer->base->render_pass,
-                                       cubemap_renderer->base->pipeline_layout,
+																						      base->render_pass,
+																						      base->depth_texture.view,
+																						      &base->swapchain_framebuffers) ||
+      !vulkan_create_descriptor_pool(vkDev, 1, 0, 1, &base->descriptor_pool) ||
+      !cubemap_renderer_create_descriptor_set(&cubemap_renderer, vkDev, sizeof(mat4)) ||
+      !vulkan_create_pipeline_layout(vkDev->device, base->descriptor_set_layout, &base->pipeline_layout) ||
+      !vulkan_create_graphics_pipeline(vkDev, base->render_pass,
+                                       base->pipeline_layout,
                                        shaders,
                                        ARRAY_SIZE(shaders),
-                                       &cubemap_renderer->base->graphics_pipeline,
+                                       &base->graphics_pipeline,
                                        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, false, -1, -1, 0))
 	{                                                                                               
 		printf("ModelRenderer: failed to create pipeline\n");
@@ -188,18 +184,6 @@ cubemap_renderer_create(vulkan_render_device* vkDev,
 	}
 
   return cubemap_renderer;
-}
-
-void
-cubemap_renderer_fill_command_buffer(t_cubemap_renderer* cube_renderer,
-                                     VkCommandBuffer commandBuffer,
-                                     u64 currentImage)
-{
-  base_renderer_begin_render_pass(cube_renderer->base, commandBuffer, currentImage);
-
-	vkCmdDraw(commandBuffer, 36, 1, 0, 0);
-
-	vkCmdEndRenderPass(commandBuffer);
 }
 
 void

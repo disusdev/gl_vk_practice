@@ -10,8 +10,8 @@ typedef unsigned char u8;
 
 enum
 {
-  CVEC_CAPACITY         = -1,
-  CVEC_SIZE             = -2,
+  CVEC_SIZE             = -1,
+  CVEC_CAPACITY         = -2,
   CVEC_STRIDE           = -3,
   CVEC_FIELD_LENGTH     = 3,
   CVEC_DEFAULT_CAPACITY = 1,
@@ -36,7 +36,9 @@ void* _cvec_resize(void* vec);
 
 void* _cvec_push(void* vec, const void* value_ptr);
 #define cvec_push(vec, value)do{\
-  CVEC_ASSERT(sizeof(TYPEOF(value)) == cvec_stride(vec));\
+  u64 stride = cvec_stride(vec);\
+  u64 type_stride = sizeof(TYPEOF(value));\
+  CVEC_ASSERT(type_stride == stride);\
   TYPEOF(value) temp = value;\
   vec = _cvec_push(vec, &temp);}while(0)
 
@@ -44,13 +46,13 @@ void* _cvec_create(const u64 length, const u64 stride);
 #define cvec_create(type)\
   (type*)_cvec_create(CVEC_DEFAULT_CAPACITY, sizeof(type))
 
-void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, b8 single);
+void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, u64 arr_length);
 #define cvec_ncreate_set(type, size, ptr)\
-  (type*)_cvec_ncreate(size, sizeof(type), ptr, true)
-#define cvec_ncreate_copy(type, size, ptr)\
-  (type*)_cvec_ncreate(size, sizeof(type), ptr, false)
+  (type*)_cvec_ncreate(size, sizeof(type), ptr, 1)
+#define cvec_ncreate_copy(type, size, ptr, arr_length)\
+  (type*)_cvec_ncreate(size, sizeof(type), ptr, arr_length)
 #define cvec_ncreate(type, size)\
-  (type*)_cvec_ncreate(size, sizeof(type), NULL, false)
+  (type*)_cvec_ncreate(size, sizeof(type), NULL, 0)
 
 #define cvec_resize(vec, size)do{\
   ((u64*)vec)[CVEC_SIZE] = size;\
@@ -63,6 +65,18 @@ void _cvec_destroy(void* vec);
 void _cvec_pop(void* vec, void* value_ptr);
 #define cvec_pop(vec, value_ptr)\
   _cvec_pop(vec, value_ptr)
+
+void _cvec_clear(void* vec);
+#define cvec_clear(vec)\
+  _cvec_clear(vec)
+
+void _cvec_merge(void* vec1, void* vec2);
+#define cvec_merge(vec1, vec2)\
+  _cvec_merge(vec1, vec2)
+
+void _cvec_erase(void* vec, u32 index);
+#define cvec_erase(vec, index)\
+  _cvec_erase(vec, index)
 
 u64 cvec_find(void* vec, const void* value_ptr);
 
@@ -137,7 +151,7 @@ void* _cvec_create(const u64 length, const u64 stride)
   return (void*)new_vec;
 }
 
-void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, b8 single)
+void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, u64 arr_length)
 {
   const u64 header_size = CVEC_FIELD_LENGTH * sizeof(u64);
   const u64 vec_size = length * stride;
@@ -150,7 +164,7 @@ void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, b8 sin
 
   if (ptr_values)
   {
-    if (single)
+    if (arr_length == 1 && arr_length != length)
     {
       u8* ptr = (u8*)new_vec;
       for (u64 i = 0; i < length; i++)
@@ -161,7 +175,7 @@ void* _cvec_ncreate(const u64 length, const u64 stride, void* ptr_values, b8 sin
     }
     else
     {
-      CVEC_MEMCPY((void*)new_vec, ptr_values, vec_size);
+      CVEC_MEMCPY((void*)new_vec, ptr_values, (arr_length * stride));
     }
   }
 
@@ -210,9 +224,12 @@ void _cvec_pop(void* vec, void* value_ptr)
 void _cvec_clear(void* vec)
 {
   CVEC_ASSERT(vec);
-  u64* header = (u64*)vec - CVEC_FIELD_LENGTH;
-  const u64 header_size = CVEC_FIELD_LENGTH * sizeof(u64);
-  const u64 total_size = header_size + header[CVEC_CAPACITY] * header[CVEC_STRIDE];
+  u64* header = (u64*)vec;
+  u64 cap = header[CVEC_CAPACITY];
+  u64 stride = header[CVEC_STRIDE];
+  header -= (CVEC_FIELD_LENGTH - 2);
+  const u64 header_size = (CVEC_FIELD_LENGTH - 2) * sizeof(u64);
+  const u64 total_size = header_size + cap * stride;
   CVEC_MEMSET(header, 0, total_size);
 }
 
@@ -242,6 +259,47 @@ u64 cvec_find(void* vec, const void* value_ptr)
     index++;
   }
   return index;
+}
+
+void _cvec_merge(void* vec1, void* vec2)
+{
+  CVEC_ASSERT(vec1);
+  CVEC_ASSERT(vec2);
+
+  const u64 vec1_length = cvec_size(vec1);
+  const u64 vec1_stride = cvec_stride(vec1);
+
+  const u64 vec2_length = cvec_size(vec2);
+  const u64 vec2_stride = cvec_stride(vec2);
+
+  CVEC_ASSERT(vec1_stride == vec2_stride);
+
+  void* new_vec = _cvec_ncreate(vec1_length + vec2_length, vec1_stride, vec1, vec1_length);
+
+  u8* insert_ptr = (u8*)new_vec;
+  insert_ptr += vec1_length * vec1_stride;
+
+  CVEC_MEMCPY((void*)insert_ptr, vec2, (vec2_length * vec2_stride));
+}
+
+void _cvec_erase(void* vec, u32 index)
+{
+  CVEC_ASSERT(vec);
+  const u64 vec_stride = cvec_stride(vec);
+  u64 vec_length = cvec_size(vec);
+  const u64 elem_index = index;
+
+  if (vec_length == 0) return;
+
+  ((u64*)vec)[CVEC_SIZE] = vec_length - 1;
+
+  vec_length = cvec_size(vec);
+  if (vec_length == 0) return;
+
+  for (u64 i = 0; i < vec_length - elem_index; i++)
+  {
+    CVEC_MEMCPY(vec + (elem_index + i), vec + (elem_index + i + 1), vec_stride);
+  }
 }
 
 #endif

@@ -284,6 +284,166 @@ create_device(VkPhysicalDevice physicalDevice,
 	return vkCreateDevice(physicalDevice, &ci, NULL, device);
 }
 
+VkResult
+create_device2(VkPhysicalDevice physicalDevice,
+	VkPhysicalDeviceFeatures2 deviceFeatures,
+	u32 graphicsFamily,
+	VkDevice* device)
+{
+	const char* extensions[] =
+	{
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_MAINTENANCE3_EXTENSION_NAME,
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		// for legacy drivers Vulkan 1.1
+		VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME
+	};
+
+	float queuePriority = 1.0f;
+
+	VkDeviceQueueCreateInfo qci =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueFamilyIndex = graphicsFamily,
+		.queueCount = 1,
+		.pQueuePriorities = &queuePriority
+	};
+
+	VkDeviceCreateInfo ci =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pNext = &deviceFeatures,
+		.flags = 0,
+		.queueCreateInfoCount = 1,
+		.pQueueCreateInfos = &qci,
+		.enabledLayerCount = 0,
+		.ppEnabledLayerNames = NULL,
+		.enabledExtensionCount = (u32)ARRAY_SIZE(extensions),
+		.ppEnabledExtensionNames = extensions,
+		.pEnabledFeatures = NULL
+	};
+
+	return vkCreateDevice(physicalDevice, &ci, NULL, device);
+}
+
+VkResult
+create_device_compute(VkPhysicalDevice physicalDevice,
+											VkPhysicalDeviceFeatures deviceFeatures,
+											u32 graphicsFamily,
+											u32 computeFamily,
+											VkDevice* device)
+{
+	const char* extensions[] =
+	{
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
+
+	if (graphicsFamily == computeFamily)
+		return create_device(physicalDevice, deviceFeatures, graphicsFamily, device);
+
+	const f32 queuePriorities[] = { 0.0f, 0.0f };
+
+	VkDeviceQueueCreateInfo qciGfx =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueFamilyIndex = graphicsFamily,
+		.queueCount = 1,
+		.pQueuePriorities = &queuePriorities[0]
+	};
+
+	VkDeviceQueueCreateInfo qciComp =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueFamilyIndex = computeFamily,
+		.queueCount = 1,
+		.pQueuePriorities = &queuePriorities[1]
+	};
+
+	const VkDeviceQueueCreateInfo qci[] = { qciGfx, qciComp };
+
+	const VkDeviceCreateInfo ci =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueCreateInfoCount = (u32)ARRAY_SIZE(qci),
+		.pQueueCreateInfos = qci,
+		.enabledLayerCount = 0,
+		.ppEnabledLayerNames = NULL,
+		.enabledExtensionCount = (u32)ARRAY_SIZE(extensions),
+		.ppEnabledExtensionNames = extensions,
+		.pEnabledFeatures = &deviceFeatures
+	};
+
+	return vkCreateDevice(physicalDevice, &ci, NULL, device);
+}
+
+VkResult
+create_device2_compute(VkPhysicalDevice physicalDevice,
+											 VkPhysicalDeviceFeatures2 deviceFeatures,
+											 u32 graphicsFamily,
+											 u32 computeFamily,
+											 VkDevice* device)
+{
+	const char* extensions[] =
+	{
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_MAINTENANCE3_EXTENSION_NAME,
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		// for legacy drivers Vulkan 1.1
+		VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME
+	};
+
+	if (graphicsFamily == computeFamily)
+		return create_device2(physicalDevice, deviceFeatures, graphicsFamily, device);
+
+	const f32 queuePriorities[] = { 0.0f, 0.0f };
+
+	VkDeviceQueueCreateInfo qciGfx =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueFamilyIndex = graphicsFamily,
+		.queueCount = 1,
+		.pQueuePriorities = &queuePriorities[0]
+	};
+
+	VkDeviceQueueCreateInfo qciComp =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueFamilyIndex = computeFamily,
+		.queueCount = 1,
+		.pQueuePriorities = &queuePriorities[1]
+	};
+
+	const VkDeviceQueueCreateInfo qci[] = { qciGfx, qciComp };
+
+	const VkDeviceCreateInfo ci =
+	{
+		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.queueCreateInfoCount = (u32)ARRAY_SIZE(qci),
+		.pQueueCreateInfos = qci,
+		.enabledLayerCount = 0,
+		.ppEnabledLayerNames = NULL,
+		.enabledExtensionCount = (u32)ARRAY_SIZE(extensions),
+		.ppEnabledExtensionNames = extensions,
+		.pEnabledFeatures = &deviceFeatures
+	};
+
+	return vkCreateDevice(physicalDevice, &ci, NULL, device);
+}
+
 swapchain_support_details
 querySwapchainSupport(VkPhysicalDevice device,
                       VkSurfaceKHR surface)
@@ -546,6 +706,307 @@ b8 vulkan_init_render_device(vulkan_instance* vk,
 	return true;
 }
 
+b8 vulkan_init_render_device2(vulkan_instance* vk,
+	vulkan_render_device* vkDev,
+	u32 width,
+	u32 height,
+	b8(*selector)(VkPhysicalDevice),
+	VkPhysicalDeviceFeatures2 deviceFeatures)
+{
+	vkDev->framebuffer_width = width;
+	vkDev->framebuffer_height = height;
+
+	VK_CHECK(find_suitable_physical_device(vk->instance, selector, &vkDev->physical_device));
+
+	vkDev->graphics_family = find_queue_families(vkDev->physical_device, VK_QUEUE_GRAPHICS_BIT);
+	VK_CHECK(create_device2(vkDev->physical_device, deviceFeatures, vkDev->graphics_family, &vkDev->device));
+
+	vkGetDeviceQueue(vkDev->device, vkDev->graphics_family, 0, &vkDev->graphics_queue);
+	if (vkDev->graphics_queue == NULL)
+		exit(EXIT_FAILURE);
+
+	VkBool32 presentSupported = 0;
+	vkGetPhysicalDeviceSurfaceSupportKHR(vkDev->physical_device, vkDev->graphics_family, vk->surface, &presentSupported);
+	if (!presentSupported)
+		exit(EXIT_FAILURE);
+
+	VK_CHECK(createSwapchain(vkDev->device, vkDev->physical_device, vk->surface, vkDev->graphics_family, width, height, &vkDev->swapchain, false));
+
+	u64 imageCount = createSwapchainImages(vkDev->device, vkDev->swapchain, &vkDev->swapchain_images, &vkDev->swapchain_image_views);
+
+	vkDev->command_buffers = cvec_ncreate(VkCommandBuffer, imageCount);
+
+	VK_CHECK(createSemaphore(vkDev->device, &vkDev->semaphore));
+	VK_CHECK(createSemaphore(vkDev->device, &vkDev->render_semaphore));
+
+	VkCommandPoolCreateInfo cpi =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = 0,
+		.queueFamilyIndex = vkDev->graphics_family
+	};
+
+	VK_CHECK(vkCreateCommandPool(vkDev->device, &cpi, NULL, &vkDev->command_pool));
+
+	VkCommandBufferAllocateInfo ai =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.pNext = NULL,
+		.commandPool = vkDev->command_pool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = (u32)(cvec_size(vkDev->swapchain_images)),
+	};
+
+	VK_CHECK(vkAllocateCommandBuffers(vkDev->device, &ai, &vkDev->command_buffers[0]));
+	return true;
+}
+
+b8
+isDeviceSuitable(VkPhysicalDevice device)
+{
+	VkPhysicalDeviceProperties deviceProperties;
+	vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+	VkPhysicalDeviceFeatures deviceFeatures;
+	vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+	const b8 isDiscreteGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+	const b8 isIntegratedGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+	const b8 isGPU = isDiscreteGPU || isIntegratedGPU;
+
+	return isGPU && deviceFeatures.geometryShader;
+}
+
+b8
+vulkan_init_render_device_compute(vulkan_instance* vk,
+													 				vulkan_render_device* vkDev,
+													 				u32 width,
+													 				u32 height,
+													 				VkPhysicalDeviceFeatures deviceFeatures)
+{
+	vkDev->framebuffer_width = width;
+	vkDev->framebuffer_height = height;
+
+	VK_CHECK(find_suitable_physical_device(vk->instance, &isDeviceSuitable, &vkDev->physical_device));
+
+	vkDev->graphics_family = find_queue_families(vkDev->physical_device, VK_QUEUE_GRAPHICS_BIT);
+	vkDev->compute_family = find_queue_families(vkDev->physical_device, VK_QUEUE_COMPUTE_BIT);
+	//	VK_CHECK(vkGetBestComputeQueue(vkDev->physical_device, &vkDev->compute_family));
+
+	vkDev->device_queue_indices = cvec_create(u32);
+
+	VK_CHECK(create_device_compute(vkDev->physical_device, deviceFeatures, vkDev->graphics_family, vkDev->compute_family, &vkDev->device));
+
+	cvec_push(vkDev->device_queue_indices, vkDev->graphics_family);
+	if (vkDev->graphics_family != vkDev->compute_family)
+		cvec_push(vkDev->device_queue_indices, vkDev->compute_family);
+
+	vkGetDeviceQueue(vkDev->device, vkDev->graphics_family, 0, &vkDev->graphics_queue);
+	if (vkDev->graphics_queue == NULL)
+		exit(EXIT_FAILURE);
+	
+	vkGetDeviceQueue(vkDev->device, vkDev->compute_family, 0, &vkDev->compute_queue);
+	if (vkDev->compute_queue == NULL)
+		exit(EXIT_FAILURE);
+	
+	VkBool32 presentSupported = 0;
+	vkGetPhysicalDeviceSurfaceSupportKHR(vkDev->physical_device, vkDev->graphics_family, vk->surface, &presentSupported);
+	if (!presentSupported)
+		exit(EXIT_FAILURE);
+
+	VK_CHECK(createSwapchain(vkDev->device, vkDev->physical_device, vk->surface, vkDev->graphics_family, width, height, &vkDev->swapchain, false));
+
+	u64 imageCount = createSwapchainImages(vkDev->device, vkDev->swapchain, &vkDev->swapchain_images, &vkDev->swapchain_image_views);
+
+	vkDev->command_buffers = cvec_ncreate(VkCommandBuffer, imageCount);
+
+	VK_CHECK(createSemaphore(vkDev->device, &vkDev->semaphore));
+	VK_CHECK(createSemaphore(vkDev->device, &vkDev->render_semaphore));
+
+	VkCommandPoolCreateInfo cpi =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = 0,
+		.queueFamilyIndex = vkDev->graphics_family
+	};
+
+	VK_CHECK(vkCreateCommandPool(vkDev->device, &cpi, NULL, &vkDev->command_pool));
+
+	VkCommandBufferAllocateInfo ai =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.pNext = NULL,
+		.commandPool = vkDev->command_pool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = (u32)(cvec_size(vkDev->swapchain_images)),
+	};
+
+	VK_CHECK(vkAllocateCommandBuffers(vkDev->device, &ai, &vkDev->command_buffers[0]));
+
+
+	{
+		// Create compute command pool
+		const VkCommandPoolCreateInfo cpi1 =
+		{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+			.pNext = NULL,
+			.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, /* Allow command from this pool buffers to be reset*/
+			.queueFamilyIndex = vkDev->compute_family
+		};
+		VK_CHECK(vkCreateCommandPool(vkDev->device, &cpi1, NULL, &vkDev->compute_command_pool));
+
+		const VkCommandBufferAllocateInfo ai1 =
+		{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			.pNext = NULL,
+			.commandPool = vkDev->compute_command_pool,
+			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			.commandBufferCount = 1,
+		};
+		VK_CHECK(vkAllocateCommandBuffers(vkDev->device, &ai1, &vkDev->compute_command_buffer));
+	}
+
+	vkDev->use_compute = true;
+
+	return true;
+}
+
+b8
+vulkan_init_render_device2_compute(vulkan_instance* vk,
+													 				vulkan_render_device* vkDev,
+													 				u32 width,
+													 				u32 height,
+													 				VkPhysicalDeviceFeatures2 deviceFeatures)
+{
+	vkDev->framebuffer_width = width;
+	vkDev->framebuffer_height = height;
+
+	VK_CHECK(find_suitable_physical_device(vk->instance, &isDeviceSuitable, &vkDev->physical_device));
+
+	vkDev->graphics_family = find_queue_families(vkDev->physical_device, VK_QUEUE_GRAPHICS_BIT);
+	vkDev->compute_family = find_queue_families(vkDev->physical_device, VK_QUEUE_COMPUTE_BIT);
+	//	VK_CHECK(vkGetBestComputeQueue(vkDev->physical_device, &vkDev->compute_family));
+
+	vkDev->device_queue_indices = cvec_create(u32);
+
+	VK_CHECK(create_device2_compute(vkDev->physical_device, deviceFeatures, vkDev->graphics_family, vkDev->compute_family, &vkDev->device));
+
+	cvec_push(vkDev->device_queue_indices, vkDev->graphics_family);
+	if (vkDev->graphics_family != vkDev->compute_family)
+		cvec_push(vkDev->device_queue_indices, vkDev->compute_family);
+
+	vkGetDeviceQueue(vkDev->device, vkDev->graphics_family, 0, &vkDev->graphics_queue);
+	if (vkDev->graphics_queue == NULL)
+		exit(EXIT_FAILURE);
+	
+	vkGetDeviceQueue(vkDev->device, vkDev->compute_family, 0, &vkDev->compute_queue);
+	if (vkDev->compute_queue == NULL)
+		exit(EXIT_FAILURE);
+	
+	VkBool32 presentSupported = 0;
+	vkGetPhysicalDeviceSurfaceSupportKHR(vkDev->physical_device, vkDev->graphics_family, vk->surface, &presentSupported);
+	if (!presentSupported)
+		exit(EXIT_FAILURE);
+
+	VK_CHECK(createSwapchain(vkDev->device, vkDev->physical_device, vk->surface, vkDev->graphics_family, width, height, &vkDev->swapchain, false));
+
+	u64 imageCount = createSwapchainImages(vkDev->device, vkDev->swapchain, &vkDev->swapchain_images, &vkDev->swapchain_image_views);
+
+	vkDev->command_buffers = cvec_ncreate(VkCommandBuffer, imageCount);
+
+	VK_CHECK(createSemaphore(vkDev->device, &vkDev->semaphore));
+	VK_CHECK(createSemaphore(vkDev->device, &vkDev->render_semaphore));
+
+	VkCommandPoolCreateInfo cpi =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = 0,
+		.queueFamilyIndex = vkDev->graphics_family
+	};
+
+	VK_CHECK(vkCreateCommandPool(vkDev->device, &cpi, NULL, &vkDev->command_pool));
+
+	VkCommandBufferAllocateInfo ai =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.pNext = NULL,
+		.commandPool = vkDev->command_pool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = (u32)(cvec_size(vkDev->swapchain_images)),
+	};
+
+	VK_CHECK(vkAllocateCommandBuffers(vkDev->device, &ai, &vkDev->command_buffers[0]));
+
+
+	{
+		// Create compute command pool
+		const VkCommandPoolCreateInfo cpi1 =
+		{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+			.pNext = NULL,
+			.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, /* Allow command from this pool buffers to be reset*/
+			.queueFamilyIndex = vkDev->compute_family
+		};
+		VK_CHECK(vkCreateCommandPool(vkDev->device, &cpi1, NULL, &vkDev->compute_command_pool));
+
+		const VkCommandBufferAllocateInfo ai1 =
+		{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			.pNext = NULL,
+			.commandPool = vkDev->compute_command_pool,
+			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			.commandBufferCount = 1,
+		};
+		VK_CHECK(vkAllocateCommandBuffers(vkDev->device, &ai1, &vkDev->compute_command_buffer));
+	}
+
+	vkDev->use_compute = true;
+
+	return true;
+}
+
+b8 vulkan_init_render_device3(vulkan_instance* vk,
+															vulkan_render_device* vkDev,
+															u32 width,
+															u32 height,
+															t_vulkan_context_features ctx_features)
+{
+	VkPhysicalDeviceDescriptorIndexingFeaturesEXT physicalDeviceDescriptorIndexingFeatures =
+	{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
+		.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+		.descriptorBindingVariableDescriptorCount = VK_TRUE,
+		.runtimeDescriptorArray = VK_TRUE,
+	};
+
+	VkPhysicalDeviceFeatures deviceFeatures =
+	{
+		/* for wireframe outlines */
+		.geometryShader = (VkBool32)(ctx_features.geometry_shader ? VK_TRUE : VK_FALSE),
+		/* for tesselation experiments */
+		.tessellationShader = (VkBool32)(ctx_features.tessellation_shader ? VK_TRUE : VK_FALSE),
+		/* for indirect instanced rendering */
+		.multiDrawIndirect = VK_TRUE,
+		.drawIndirectFirstInstance = VK_TRUE,
+		/* for OIT and general atomic operations */
+		//.vertexPipelineStoresAndAtomics = (VkBool32)(ctx_features.vertex_pipeline_stores_and_atomics ? VK_TRUE : VK_FALSE),
+		.fragmentStoresAndAtomics = (VkBool32)(ctx_features.fragment_stores_and_atomics ? VK_TRUE : VK_FALSE),
+		/* for arrays of textures */
+		.shaderSampledImageArrayDynamicIndexing = VK_TRUE,
+		/* for GL <-> VK material shader compatibility */
+		.shaderInt64 =  VK_TRUE,
+	};
+
+	VkPhysicalDeviceFeatures2 deviceFeatures2 =
+	{
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+		.pNext = &physicalDeviceDescriptorIndexingFeatures,
+		.features = deviceFeatures  /*  */
+	};
+
+	return vulkan_init_render_device2_compute(vk, vkDev, width, height, deviceFeatures2);
+}
+
 void vulkan_destroy_render_device(vulkan_render_device* vkDev)
 {
 	for (size_t i = 0; i < cvec_size(vkDev->swapchain_images); i++)
@@ -761,44 +1222,49 @@ u64 vulkan_allocate_vertex_buffer(vulkan_render_device* vkDev,
 }
 
 b8 vulkan_create_textured_vertex_buffer(vulkan_render_device* vkDev,
-																				const char* file_path,
+																				t_model* model,
 																				VkBuffer* storageBuffer,
 																				VkDeviceMemory* storageBufferMemory,
 																				u64* vertexBufferSize,
 																				u64* indexBufferSize)
 {
-	vkDev->model = LoadGLTF(file_path);
+	typedef struct
+	{
+		vec3 pos;
+		vec3 n;
+		vec2 tc;
+	}
+	VertexData;
 
-	vkDev->mesh_idx = 0;
 
-	*vertexBufferSize = sizeof(VertexData) * vkDev->model->meshes[vkDev->mesh_idx].vertexCount;
-	*indexBufferSize = sizeof(u32) * vkDev->model->meshes[vkDev->mesh_idx].triangleCount * 3;
+	t_mesh* mesh = &model->meshes[0];
 
-	t_mesh* mesh = &vkDev->model->meshes[vkDev->mesh_idx];
+	*vertexBufferSize = sizeof(VertexData) * mesh->vertexCount;
+	*indexBufferSize = sizeof(u32) * mesh->triangleCount * 3;
 
-	mesh->vn_vertices = cvec_ncreate(VertexData, mesh->vertexCount);
+
+
+	cvec(VertexData) vertices = cvec_ncreate(VertexData, mesh->vertexCount);
 
 	for (u64 i = 0; i < mesh->vertexCount; i++)
 	{
-		mesh->vn_vertices[i].pos.x = mesh->v_vertices[i * 3];
-		mesh->vn_vertices[i].pos.y = mesh->v_vertices[i * 3 + 1];
-		mesh->vn_vertices[i].pos.z = mesh->v_vertices[i * 3 + 2];
-
-		//mesh->vn_vertices[i].n.x = mesh->v_normals[i * 3];
-		//mesh->vn_vertices[i].n.y = mesh->v_normals[i * 3 + 1];
-		//mesh->vn_vertices[i].n.z = mesh->v_normals[i * 3 + 2];
-
-		mesh->vn_vertices[i].tc.x = mesh->v_texcoords[i * 2];
-		mesh->vn_vertices[i].tc.y = mesh->v_texcoords[i * 2 + 1];
+		vertices[i].pos.x = mesh->v_vertices[i * 3];
+		vertices[i].pos.y = mesh->v_vertices[i * 3 + 1];
+		vertices[i].pos.z = mesh->v_vertices[i * 3 + 2];
+		vertices[i].n.x = mesh->v_normals[i * 3];
+		vertices[i].n.y = mesh->v_normals[i * 3 + 1];
+		vertices[i].n.z = mesh->v_normals[i * 3 + 2];
+		vertices[i].tc.x = mesh->v_texcoords[i * 2];
+		vertices[i].tc.y = mesh->v_texcoords[i * 2 + 1];
 	}
 
 	vulkan_allocate_vertex_buffer(vkDev,
 																storageBuffer,
 																storageBufferMemory,
 																*vertexBufferSize,
-																vkDev->model->meshes[vkDev->mesh_idx].vn_vertices,
+																vertices,
 																*indexBufferSize,
-																vkDev->model->meshes[vkDev->mesh_idx].v_indices);
+																mesh->v_indices);
 
 	return true;
 }
@@ -1733,6 +2199,45 @@ vulkan_create_pipeline_layout(VkDevice device,
 	return (vkCreatePipelineLayout(device, &pipelineLayoutInfo, NULL, pipelineLayout) == VK_SUCCESS);
 }
 
+vulkan_create_pipeline_layout_with_consts(VkDevice device,
+																					VkDescriptorSetLayout dsLayout,
+																					VkPipelineLayout* pipelineLayout,
+																					u32 vtxConstSize,
+																					u32 fragConstSize)
+{
+	const VkPushConstantRange ranges[] =
+	{
+		(VkPushConstantRange)
+		{
+			VK_SHADER_STAGE_VERTEX_BIT,   // stageFlags
+			0,                            // offset
+			vtxConstSize                  // size
+		},
+		(VkPushConstantRange)
+		{
+			VK_SHADER_STAGE_FRAGMENT_BIT, // stageFlags
+			vtxConstSize,                 // offset
+			fragConstSize                 // size
+		}
+	};
+
+	u32 constSize = (vtxConstSize > 0) + (fragConstSize > 0);
+
+	const VkPipelineLayoutCreateInfo pipelineLayoutInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.setLayoutCount = 1,
+		.pSetLayouts = &dsLayout,
+		.pushConstantRangeCount = constSize,
+		.pPushConstantRanges = (constSize == 0) ? NULL :
+			(vtxConstSize > 0 ? ranges : &ranges[1])
+	};
+
+	return (vkCreatePipelineLayout(device, &pipelineLayoutInfo, NULL, pipelineLayout) == VK_SUCCESS);
+}
+
 VkShaderStageFlagBits vulkanShaderStageFromFileName(const char* fileName)
 {
 	if (ends_with(fileName, ".vert"))
@@ -1760,7 +2265,7 @@ b8
 vulkan_create_graphics_pipeline(vulkan_render_device* vkDev,
 																VkRenderPass renderPass,
 																VkPipelineLayout pipelineLayout,
-																char** shaderFiles,
+																const char** shaderFiles,
 																i32 shaders_count,
 																VkPipeline* pipeline,
 																VkPrimitiveTopology topology,
@@ -1802,7 +2307,7 @@ vulkan_create_graphics_pipeline(vulkan_render_device* vkDev,
 		.primitiveRestartEnable = VK_FALSE
 	};
 
-	b8 is_fliped = true;
+	b8 is_fliped = false;
 
 	VkViewport viewport =
 	{
@@ -1930,6 +2435,37 @@ vulkan_create_graphics_pipeline(vulkan_render_device* vkDev,
 }
 
 b8
+vulkan_create_compute_pipeline(VkDevice device,
+															 VkShaderModule computeShader,
+															 VkPipelineLayout pipelineLayout,
+															 VkPipeline* pipeline)
+{
+	VkComputePipelineCreateInfo computePipelineCreateInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.stage =
+		{  // ShaderStageInfo, just like in graphics pipeline, but with a single COMPUTE stage
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.pNext = NULL,
+			.flags = 0,
+			.stage = VK_SHADER_STAGE_COMPUTE_BIT,
+			.module = computeShader,
+			.pName = "main",
+			/* we don't use specialization */
+			.pSpecializationInfo = NULL
+		},
+		.layout = pipelineLayout,
+		.basePipelineHandle = 0,
+		.basePipelineIndex  = 0
+	};
+
+	/* no caching, single pipeline creation*/
+	return vkCreateComputePipelines(device, 0, 1, &computePipelineCreateInfo, NULL, pipeline);
+}
+
+b8
 vulkan_create_color_and_depth_framebuffers(vulkan_render_device* vkDev,
 																					 VkRenderPass renderPass,
 																					 VkImageView depthImageView,
@@ -1971,6 +2507,14 @@ vulkan_destroy_image(VkDevice device,
 	vkDestroyImageView(device, image->view, NULL);
 	vkDestroyImage(device, image->handle, NULL);
 	vkFreeMemory(device, image->memory, NULL);
+}
+
+void
+vulkan_destroy_texture(VkDevice device,
+											 vulkan_texture* texture)
+{
+	vulkan_destroy_image(device, &texture->image);
+	vkDestroySampler(device, texture->sampler, NULL);
 }
 
 b8
@@ -2060,6 +2604,502 @@ imageWriteDescriptorSet(VkDescriptorSet ds,
 		NULL,
 		NULL
 	};
+}
+
+b8
+vulkan_create_shared_buffer(vulkan_render_device* vkDev,
+														VkDeviceSize size,
+														VkBufferUsageFlags usage,
+														VkMemoryPropertyFlags properties,
+														VkBuffer* buffer,
+														VkDeviceMemory* bufferMemory)
+{
+	u32 familyCount = (u32)cvec_size(vkDev->device_queue_indices);
+
+	if (familyCount < 2)
+		return vulkan_create_buffer(vkDev->device, vkDev->physical_device, size, usage, properties, buffer, bufferMemory);
+
+	const VkBufferCreateInfo bufferInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.pNext = NULL,
+		.flags = 0,
+		.size = size,
+		.usage = usage,
+		.sharingMode = (familyCount > 1) ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE,
+		.queueFamilyIndexCount = (u32)cvec_size(vkDev->device_queue_indices),
+		.pQueueFamilyIndices = (familyCount > 1) ? vkDev->device_queue_indices : NULL
+	};
+
+	VK_CHECK(vkCreateBuffer(vkDev->device, &bufferInfo, NULL, buffer));
+
+	VkMemoryRequirements memRequirements;
+	vkGetBufferMemoryRequirements(vkDev->device, *buffer, &memRequirements);
+
+	const VkMemoryAllocateInfo allocInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.pNext = NULL,
+		.allocationSize = memRequirements.size,
+		.memoryTypeIndex = findMemoryType(vkDev->physical_device, memRequirements.memoryTypeBits, properties)
+	};
+
+	VK_CHECK(vkAllocateMemory(vkDev->device, &allocInfo, NULL, bufferMemory));
+
+	vkBindBufferMemory(vkDev->device, *buffer, *bufferMemory, 0);
+
+	return true;
+}
+
+b8
+vulkan_create_compute_descriptor_set_layout(VkDevice device,
+																 						VkDescriptorSetLayout* descriptorSetLayout)
+{
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBindings[2] =
+	{
+		{ 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, 0 },
+		{ 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, 0 }
+	};
+
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo =
+	{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		0, 0, 2, descriptorSetLayoutBindings
+	};
+
+	return (vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCreateInfo, 0, descriptorSetLayout) == VK_SUCCESS);
+}
+
+// void
+// vulkan_upload_buffer_data(vulkan_render_device* vkDev,
+// 									 				const VkDeviceMemory* bufferMemory,
+// 									 				VkDeviceSize deviceOffset,
+// 									 				const void* data,
+// 									 				const u64 dataSize)
+// {
+// 	void* mappedData = NULL;
+// 	vkMapMemory(vkDev->device, *bufferMemory, deviceOffset, dataSize, 0, &mappedData);
+// 		memcpy(mappedData, data, dataSize);
+// 	vkUnmapMemory(vkDev->device, *bufferMemory);
+// }
+
+void
+vulkan_download_buffer_data(vulkan_render_device* vkDev,
+														const VkDeviceMemory* bufferMemory,
+														VkDeviceSize deviceOffset,
+														void* outData,
+														const u64 dataSize)
+{
+	void* mappedData = NULL;
+	vkMapMemory(vkDev->device, *bufferMemory, deviceOffset, dataSize, 0, &mappedData);
+		memcpy(outData, mappedData, dataSize);
+	vkUnmapMemory(vkDev->device, *bufferMemory);
+}
+
+b8
+vulkan_execute_compute_shader(vulkan_render_device* vkDev,
+															VkPipeline pipeline,
+															VkPipelineLayout pipelineLayout,
+															VkDescriptorSet ds,
+															u32 xsize,
+															u32 ysize,
+															u32 zsize)
+{
+	VkCommandBuffer commandBuffer = vkDev->compute_command_buffer;
+
+	VkCommandBufferBeginInfo commandBufferBeginInfo =
+	{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		0, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, 0
+	};
+
+	VK_CHECK(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
+
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &ds, 0, 0);
+
+	vkCmdDispatch(commandBuffer, xsize, ysize, zsize);
+
+	VkMemoryBarrier readoutBarrier =
+	{
+		.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+		.pNext = NULL,
+		.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+		.dstAccessMask = VK_ACCESS_HOST_READ_BIT
+	};
+
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 1, &readoutBarrier, 0, NULL, 0, NULL);
+
+	VK_CHECK(vkEndCommandBuffer(commandBuffer));
+
+	VkSubmitInfo submitInfo =
+	{
+		VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		0, 0, 0, 0, 1, &commandBuffer, 0, 0
+	};
+
+	VK_CHECK(vkQueueSubmit(vkDev->compute_queue, 1, &submitInfo, 0));
+	VK_CHECK(vkQueueWaitIdle(vkDev->compute_queue));
+
+	return true;
+}
+
+b8
+create_pbr_vertex_buffer(vulkan_render_device* vk_dev,
+												 t_model* model,
+												 VkBuffer* storageBuffer,
+												 VkDeviceMemory* storageBufferMemory,
+												 u64* vertexBufferSize,
+												 u64* indexBufferSize)
+{
+	t_mesh* mesh = &model->meshes[0];
+
+	typedef struct
+	{
+		vec4 pos;
+		vec4 n;
+		vec4 tc;
+	}
+	pbr_vd;
+
+	*vertexBufferSize = sizeof(pbr_vd) * mesh->vertexCount;
+	*indexBufferSize = sizeof(u32) * mesh->triangleCount * 3;
+
+	cvec(pbr_vd) vertices = cvec_ncreate(pbr_vd, mesh->vertexCount);
+
+	for (u64 i = 0; i < mesh->vertexCount; i++)
+	{
+		// vec4 pos = vec4_zero();
+		// pos.x = mesh->v_vertices[i * 3];
+		// pos.y = mesh->v_vertices[i * 3 + 1];
+		// pos.z = mesh->v_vertices[i * 3 + 2];
+		// pos.w = 1.0f;
+
+		// if (model->transforms)
+		// {
+		// 	// transform vertices
+		// 	pos = mat4_mul_point_vec4(model->transforms[0], pos);
+		// }
+
+		// vertices[i].pos = pos;
+
+		vertices[i].pos.x = mesh->v_vertices[i * 3];
+		vertices[i].pos.y = mesh->v_vertices[i * 3 + 1];
+		vertices[i].pos.z = mesh->v_vertices[i * 3 + 2];
+		vertices[i].pos.w = 1.0f;
+
+		vertices[i].n.x = mesh->v_normals[i * 3];
+		vertices[i].n.y = mesh->v_normals[i * 3 + 1];
+		vertices[i].n.z = mesh->v_normals[i * 3 + 2];
+		vertices[i].n.w = 0.0f;
+
+		if (model->transforms)
+		{
+			// transform vertices
+			vertices[i].pos = mat4_mul_point_vec4(model->transforms[0], vertices[i].pos);
+			vertices[i].n = mat4_mul_point_vec4(model->transforms[0], vertices[i].n);
+		}
+
+		// vertices[i].n = vec4_mul_scalar(vertices[i].n, -1.0f);
+
+		vertices[i].tc.x = mesh->v_texcoords[i * 2];
+		vertices[i].tc.y = /*1.0f -*/ mesh->v_texcoords[i * 2 + 1];
+		vertices[i].tc.z = 0.0f;
+		vertices[i].tc.w = 0.0f;
+	}
+
+	vulkan_allocate_vertex_buffer(vk_dev,
+																storageBuffer,
+																storageBufferMemory,
+																*vertexBufferSize,
+																vertices,
+																*indexBufferSize,
+																mesh->v_indices);
+
+	cvec_destroy(vertices);
+
+	return true;
+}
+
+void
+vulkan_load_texture(vulkan_render_device* vk_dev,
+										const char* texture_file,
+										vulkan_texture* texture)
+{
+	vulkan_create_texture_image(vk_dev, texture_file, &texture->image.handle, &texture->image.memory, NULL, NULL);
+	vulkan_create_image_view(vk_dev->device, texture->image.handle, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &texture->image.view, VK_IMAGE_VIEW_TYPE_2D, 1, 1);
+	vulkan_create_texture_sampler(vk_dev->device, &texture->sampler, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+}
+
+static void float24to32(int w, int h, const float* img24, float *img32)
+{
+	const int numPixels = w * h;
+	for (int i = 0; i != numPixels; i++)
+	{
+		*img32++ = *img24++;
+		*img32++ = *img24++;
+		*img32++ = *img24++;
+		*img32++ = 1.0f;
+	}
+}
+
+void
+vulkan_copy_mip_buffer_to_image(vulkan_render_device* vk_dev,
+																VkBuffer buffer,
+																VkImage image,
+																u32 mipLevels,
+																u32 width,
+																u32 height,
+																u32 bytesPP,
+																u32 layerCount)
+{
+	VkCommandBuffer commandBuffer = vulkan_begin_single_time_commands(vk_dev);
+
+	u32 w = width, h = height;
+	u32 offset = 0;
+	cvec(VkBufferImageCopy) regions = cvec_ncreate(VkBufferImageCopy, mipLevels);
+
+	for (u32 i = 0 ; i < mipLevels ; i++)
+	{
+		const VkBufferImageCopy region =
+		{
+			.bufferOffset = offset,
+			.bufferRowLength = 0,
+			.bufferImageHeight = 0,
+			.imageSubresource = (VkImageSubresourceLayers)
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = i,
+				.baseArrayLayer = 0,
+				.layerCount = layerCount
+			},
+			.imageOffset = (VkOffset3D) {.x = 0, .y = 0, .z = 0 },
+			.imageExtent = (VkExtent3D) {.width = w, .height = h, .depth = 1 }
+		};
+
+		offset += w * h * layerCount * bytesPP;
+
+		regions[i] = region;
+
+		w >>= 1;
+		h >>= 1;
+	}
+
+	vulkan_copy_buffer_to_image(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, mipLevels, regions);
+
+	cvec_destroy(regions);
+
+	vulkan_end_single_time_commands(vk_dev, commandBuffer);
+}
+
+b8
+vulkan_create_mip_texture_image_from_data(vulkan_render_device* vk_dev,
+																	        VkImage* texture_image,
+																	        VkDeviceMemory* texture_memory,
+																	        void* mip_data,
+																	        u32 mip_levels,
+																	        u32 tex_width,
+																	        u32 tex_height,
+																	        VkFormat tex_format,
+																	        u32 layer_count,
+																	        VkImageCreateFlags flags)
+{
+	vulkan_create_image(vk_dev->device,
+											vk_dev->physical_device,
+											tex_width,
+											tex_height,
+											tex_format,
+											VK_IMAGE_TILING_OPTIMAL,
+											VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+											VK_IMAGE_USAGE_SAMPLED_BIT,
+											VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+											texture_image,
+											texture_memory,
+											flags, mip_levels);
+  
+
+	// now allocate staging buffer for all MIP levels
+	u32 bytesPerPixel = bytesPerTexFormat(tex_format);
+
+	VkDeviceSize layerSize = tex_width * tex_height * bytesPerPixel;
+	VkDeviceSize imageSize = layerSize * layer_count;
+
+	uint32_t w = tex_width, h = tex_height;
+	for (uint32_t i = 1 ; i < mip_levels ; i++)
+	{
+		w >>= 1;
+		h >>= 1;
+		imageSize += w * h * bytesPerPixel * layer_count;
+	}
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	vulkan_create_buffer(vk_dev->device,
+											 vk_dev->physical_device,
+											 imageSize,
+											 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+											 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+											 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+											 &stagingBuffer,
+											 &stagingBufferMemory);
+
+	vulkan_upload_buffer_data(vk_dev, stagingBufferMemory, 0, mip_data, imageSize);
+
+	transitionImageLayout(vk_dev, texture_image, tex_format, VK_IMAGE_LAYOUT_UNDEFINED/*sourceImageLayout*/, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, layer_count, mip_levels);
+		vulkan_copy_mip_buffer_to_image(vk_dev, stagingBuffer, texture_image, mip_levels, tex_width, tex_height, bytesPerPixel, layer_count);
+	transitionImageLayout(vk_dev, texture_image, tex_format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, layer_count, mip_levels);
+
+	vkDestroyBuffer(vk_dev->device, stagingBuffer, NULL);
+	vkFreeMemory(vk_dev->device, stagingBufferMemory, NULL);
+
+	return true;
+}
+
+b8
+vulkan_create_mip_cube_texture_image(vulkan_render_device* vk_dev,
+																		 const char* texture_file,
+																		 u32 mip_levels,
+																		 VkImage* texture_image,
+																		 VkDeviceMemory* texture_memory,
+																		 u32* width,
+																		 u32* height)
+{
+	i32 comp;
+	i32 texWidth, texHeight;
+	const f32* img = stbi_loadf(texture_file, &texWidth, &texHeight, &comp, 3);
+
+	if (!img)
+	{
+		printf("Failed to load [%s] texture\n", texture_file); fflush(stdout);
+		return false;
+	}
+
+	u32 imageSize = texWidth * texHeight * 4;
+	u32 mipSize = imageSize * 6;
+
+	u32 w = texWidth, h = texHeight;
+	for (u32 i = 1 ; i < mip_levels ; i++)
+	{
+		imageSize = w * h * 4;
+		w >>= 1;
+		h >>= 1;
+		mipSize += imageSize;
+	}
+
+	cvec(f32) mipData = cvec_ncreate(f32, mipSize);
+	// cvec_clear(mipData);
+
+	f32* src = mipData;
+	f32* dst = mipData;
+
+	w = texWidth;
+	h = texHeight;
+	float24to32(w, h, img, dst);
+
+	for (u32 i = 1 ; i < mip_levels ; i++)
+	{
+		imageSize = w * h * 4;
+		dst += w * h * 4;
+		stbir_resize_float_generic(
+			src, w, h, 0, dst, w / 2, h / 2, 0, 4,
+			STBIR_ALPHA_CHANNEL_NONE, 0, STBIR_EDGE_CLAMP, STBIR_FILTER_CUBICBSPLINE, STBIR_COLORSPACE_LINEAR, NULL);
+
+		w >>= 1;
+		h >>= 1;
+		src = dst;
+	}
+
+	src = mipData;
+	dst = mipData;
+
+	cvec(f32) mipCube = cvec_ncreate(f32, mipSize * 6);
+	// cvec_clear(mipData);
+	f32* mip = mipCube;
+
+	w = texWidth;
+	h = texHeight;
+	u32 faceSize = w / 4;
+	for (u32 i = 0 ; i < mip_levels ; i++)
+	{
+		// Bitmap in(w, h, 4, eBitmapFormat_Float, src);
+		// Bitmap out = convertEquirectangularMapToVerticalCross(in);
+		// Bitmap cube = convertVerticalCrossToCubeMapFaces(out);
+
+		t_cbitmap* in = cbitmap_create_from_data(w, h, 1, 4, BITMAP_FORMAT_F32, src);
+		t_cbitmap* out = convert_equirectangular_map_to_vertical_cross(in);
+  	t_cbitmap* cubemap = convert_vertical_cross_to_cube_map_faces(out);
+
+		imageSize = faceSize * faceSize * 4;
+
+		memcpy(mip, cubemap->data, 6 * imageSize * sizeof(f32));
+		mip += imageSize * 6;
+
+		src += w * h * 4;
+		w >>= 1;
+		h >>= 1;
+	}
+
+	stbi_image_free((void*)img);
+
+	if (width && height)
+	{
+		*width = texWidth;
+		*height = texHeight;
+	}
+
+	return vulkan_create_mip_texture_image_from_data(vk_dev,
+																									 texture_image, texture_memory,
+																									 mipCube, mip_levels, faceSize, faceSize,
+																									 VK_FORMAT_R32G32B32A32_SFLOAT,
+																									 6, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+}
+
+b8
+vulkan_create_cube_texture_image(vulkan_render_device* vk_dev,
+																 const char* texture_file,
+																 VkImage* texture_image,
+																 VkDeviceMemory* texture_memory,
+																 u32* width,
+																 u32* height)
+{
+	i32 comp;
+	i32 texWidth, texHeight;
+	const f32* img = stbi_loadf(texture_file, &texWidth, &texHeight, &comp, 3);
+
+	if (!img)
+  {
+		printf("Failed to load [%s] texture\n", texture_file); fflush(stdout);
+		return false;
+	}
+
+	cvec(f32) img32 = cvec_ncreate(f32, (texWidth * texHeight * 4));
+
+	float24to32(texWidth, texHeight, img, img32);
+
+
+	stbi_image_free((void*)img);
+
+  t_cbitmap* in = cbitmap_create_from_data(texWidth, texHeight, 1, 4, BITMAP_FORMAT_F32, img32);
+	t_cbitmap* out = convert_equirectangular_map_to_vertical_cross(in);
+
+  t_cbitmap* cubemap = convert_vertical_cross_to_cube_map_faces(out);
+
+	if (width && height)
+	{
+		*width = texWidth;
+		*height = texHeight;
+	}
+
+  return vulkan_create_texture_image_from_data(vk_dev,
+                                               texture_image,
+                                               texture_memory,
+                                               cubemap->data,
+                                               cubemap->w,
+                                               cubemap->h,
+                                               VK_FORMAT_R32G32B32A32_SFLOAT,
+                                               6,
+                                               VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 }
 
 #endif

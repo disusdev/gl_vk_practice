@@ -1,9 +1,7 @@
-#ifndef __VK_BASE_RENDERER__
-#define __VK_BASE_RENDERER__
+#ifndef __VK_BASE_RENDERER_H__
+#define __VK_BASE_RENDERER_H__
 
 #include <defines.h>
-
-#include <vk/vk_types.h>
 
 typedef struct
 t_base_renderer
@@ -29,6 +27,9 @@ t_base_renderer
   // 5. Uniform buffer
   cvec(VkBuffer) uniform_buffers;
   cvec(VkDeviceMemory) uniform_buffers_memory;
+
+  void(*fill_command_buffer)(void*, VkCommandBuffer, u64);
+  void(*push_constants)(void*, VkCommandBuffer, u32, vec2*);
 }
 t_base_renderer;
 

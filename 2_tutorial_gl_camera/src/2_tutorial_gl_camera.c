@@ -399,7 +399,7 @@ int main()
 		{
 			PerFrameData perFrameData;
 			perFrameData.view = camera_get_view_matrix(&g_camera);
-			perFrameData.proj = camera_get_projection_matrix(&g_camera, ratio, false);
+			perFrameData.proj = camera_get_projection_matrix(&g_camera, ratio, false, false);
 			perFrameData.cameraPos = vec4_create(g_camera.position.x, g_camera.position.y, g_camera.position.z, 1.0f);
 
 			glNamedBufferSubData(perFrameDataBuffer, 0, kUniformBufferSize, &perFrameData);

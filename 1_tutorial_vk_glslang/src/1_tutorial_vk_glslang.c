@@ -275,7 +275,7 @@ b8 vulkan_init()
 
 	
 	if (!vulkan_create_textured_vertex_buffer(&vk_dev,
-																						"data/rubber_duck/scene.gltf",
+																						LoadGLTF("data/rubber_duck/scene.gltf"),
 																						&vk_state.storage_buffer,
 																						&vk_state.storage_buffer_memory,
 																						&vertex_buffer_size,

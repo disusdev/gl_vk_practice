@@ -40,6 +40,8 @@ ipch
 .cache
 .projects
 
+remedybg.exe
+
 external/*
 data/*
 

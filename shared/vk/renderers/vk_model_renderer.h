@@ -1,16 +1,14 @@
-#ifndef __VK_MODEL_RENDERER__
-#define __VK_MODEL_RENDERER__
+#ifndef __VK_MODEL_RENDERER_H__
+#define __VK_MODEL_RENDERER_H__
 
 #include <defines.h>
-
-#include "vk_base_renderer.h"
 
 static VkClearColorValue CLEAR_VALUE_COLOR = (VkClearColorValue) { 1.0f, 1.0f, 1.0f, 1.0f };
 
 typedef struct
 t_model_renderer
 {
-  t_base_renderer* base_renderer;
+  t_base_renderer* base;
 
   u64 vertex_buffer_size;
   u64 index_buffer_size;
@@ -49,30 +47,30 @@ model_renderer_create_descriptor_set(t_model_renderer* model_renderer,
 		.pBindings = bindings
 	};
 
-	VK_CHECK(vkCreateDescriptorSetLayout(vk_device->device, &layoutInfo, NULL, &model_renderer->base_renderer->descriptor_set_layout));
+	VK_CHECK(vkCreateDescriptorSetLayout(vk_device->device, &layoutInfo, NULL, &model_renderer->base->descriptor_set_layout));
 
-	cvec(VkDescriptorSetLayout) layouts = cvec_ncreate_set(VkDescriptorSetLayout, cvec_size(vk_device->swapchain_images), &model_renderer->base_renderer->descriptor_set_layout);
+	cvec(VkDescriptorSetLayout) layouts = cvec_ncreate_set(VkDescriptorSetLayout, cvec_size(vk_device->swapchain_images), &model_renderer->base->descriptor_set_layout);
 
 	VkDescriptorSetAllocateInfo allocInfo = (VkDescriptorSetAllocateInfo)
   {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.pNext = NULL,
-		.descriptorPool = model_renderer->base_renderer->descriptor_pool,
+		.descriptorPool = model_renderer->base->descriptor_pool,
 		.descriptorSetCount = (u32)cvec_size(vk_device->swapchain_images),
 		.pSetLayouts = layouts
 	};
 
-  model_renderer->base_renderer->descriptor_sets = cvec_ncreate(VkDescriptorSet, cvec_size(vk_device->swapchain_images));
+  model_renderer->base->descriptor_sets = cvec_ncreate(VkDescriptorSet, cvec_size(vk_device->swapchain_images));
 
-	VK_CHECK(vkAllocateDescriptorSets(vk_device->device, &allocInfo, model_renderer->base_renderer->descriptor_sets));
+	VK_CHECK(vkAllocateDescriptorSets(vk_device->device, &allocInfo, model_renderer->base->descriptor_sets));
 
 	for (u64 i = 0; i < cvec_size(vk_device->swapchain_images); i++)
 	{
-		VkDescriptorSet ds = model_renderer->base_renderer->descriptor_sets[i];
+		VkDescriptorSet ds = model_renderer->base->descriptor_sets[i];
 
 		VkDescriptorBufferInfo bufferInfo = (VkDescriptorBufferInfo)
     {
-      model_renderer->base_renderer->uniform_buffers[i],
+      model_renderer->base->uniform_buffers[i],
       0,
       uniform_data_size
     };
@@ -109,31 +107,43 @@ model_renderer_create_descriptor_set(t_model_renderer* model_renderer,
 	return true;
 }
 
-t_model_renderer*
+static void
+model_renderer_fill_command_buffer(t_model_renderer* model_renderer,
+                                   VkCommandBuffer commandBuffer,
+                                   u64 currentImage)
+{
+  base_renderer_begin_render_pass(model_renderer->base, commandBuffer, currentImage);
+
+	vkCmdDraw(commandBuffer, (u32)(model_renderer->index_buffer_size / (sizeof(u32))), 1, 0, 0);
+	vkCmdEndRenderPass(commandBuffer);
+}
+
+t_model_renderer
 model_renderer_create_default(vulkan_render_device* vkDev,
                               const char* modelFile,
                               const char* textureFile,
                               u32 uniformDataSize)
 {
-  t_model_renderer* model_renderer = malloc(sizeof(t_model_renderer));
-  memset(model_renderer, 0, sizeof(t_model_renderer));
-  model_renderer->base_renderer = base_renderer_create(vkDev, (vulkan_image) { 0, 0, 0 });
-  model_renderer->delete_mesh_data = true;
+  t_model_renderer model_renderer = { 0 };
+
+  model_renderer.base = base_renderer_create(vkDev, (vulkan_image) { 0, 0, 0 });
+  model_renderer.base->fill_command_buffer = &model_renderer_fill_command_buffer;
+  model_renderer.delete_mesh_data = true;
 
   if (!vulkan_create_textured_vertex_buffer(vkDev,
-																						modelFile,
-                                            &model_renderer->storage_buffer,
-																						&model_renderer->storage_buffer_memory,
-																						&model_renderer->vertex_buffer_size,
-																						&model_renderer->index_buffer_size))
+																						LoadGLTF(modelFile),
+                                            &model_renderer.storage_buffer,
+																						&model_renderer.storage_buffer_memory,
+																						&model_renderer.vertex_buffer_size,
+																						&model_renderer.index_buffer_size))
 	{
 		printf("ModelRenderer: createTexturedVertexBuffer() failed\n");
 		exit(EXIT_FAILURE);
 	}
 
-  vulkan_create_texture_image(vkDev, textureFile, &model_renderer->texture.handle, &model_renderer->texture.memory, NULL, NULL);
-	vulkan_create_image_view(vkDev->device, model_renderer->texture.handle, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &model_renderer->texture.view, VK_IMAGE_VIEW_TYPE_2D, 1, 1);
-	vulkan_create_texture_sampler(vkDev->device, &model_renderer->texture_sampler, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
+  vulkan_create_texture_image(vkDev, textureFile, &model_renderer.texture.handle, &model_renderer.texture.memory, NULL, NULL);
+	vulkan_create_image_view(vkDev->device, model_renderer.texture.handle, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &model_renderer.texture.view, VK_IMAGE_VIEW_TYPE_2D, 1, 1);
+	vulkan_create_texture_sampler(vkDev->device, &model_renderer.texture_sampler, VK_FILTER_LINEAR, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
   const char* shaders[] =
   {
@@ -146,42 +156,42 @@ model_renderer_create_default(vulkan_render_device* vkDev,
   {
     .clearColor_ = false,
     .clearDepth_ = false,
-    .flags_ = eRenderPassBit_Last 
+    .flags_ = 0 
   };
 
   if (!vulkan_create_depth_resources(vkDev,
                                      vkDev->framebuffer_width,
                                      vkDev->framebuffer_height,
-                                     &model_renderer->base_renderer->depth_texture) ||
+                                     &model_renderer.base->depth_texture) ||
       !vulkan_create_color_and_depth_render_pass(vkDev,
                                                  true,
-                                                 &model_renderer->base_renderer->render_pass,
+                                                 &model_renderer.base->render_pass,
                                                  &render_pass_info,
                                                  VK_FORMAT_B8G8R8A8_UNORM) ||
-      !base_renderer_create_uniform_buffers(model_renderer->base_renderer,
+      !base_renderer_create_uniform_buffers(model_renderer.base,
                                             vkDev,
                                             uniformDataSize) ||
       !vulkan_create_color_and_depth_framebuffers(vkDev,
-																						      model_renderer->base_renderer->render_pass,
-																						      model_renderer->base_renderer->depth_texture.view,
-																						      &model_renderer->base_renderer->swapchain_framebuffers) ||
+																						      model_renderer.base->render_pass,
+																						      model_renderer.base->depth_texture.view,
+																						      &model_renderer.base->swapchain_framebuffers) ||
       !vulkan_create_descriptor_pool(vkDev,
                                      1,
                                      2,
                                      1,
-                                     &model_renderer->base_renderer->descriptor_pool) ||
-      !model_renderer_create_descriptor_set(model_renderer,
+                                     &model_renderer.base->descriptor_pool) ||
+      !model_renderer_create_descriptor_set(&model_renderer,
                                             vkDev,
                                             uniformDataSize) ||
       !vulkan_create_pipeline_layout(vkDev->device,
-                                     model_renderer->base_renderer->descriptor_set_layout,
-                                     &model_renderer->base_renderer->pipeline_layout) ||
+                                     model_renderer.base->descriptor_set_layout,
+                                     &model_renderer.base->pipeline_layout) ||
       !vulkan_create_graphics_pipeline(vkDev,
-                                       model_renderer->base_renderer->render_pass,
-                                       model_renderer->base_renderer->pipeline_layout,
+                                       model_renderer.base->render_pass,
+                                       model_renderer.base->pipeline_layout,
                                        shaders,
                                        ARRAY_SIZE(shaders),
-                                       &model_renderer->base_renderer->graphics_pipeline,
+                                       &model_renderer.base->graphics_pipeline,
                                        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, false, -1, -1, 0))
   {
     printf("ModelRenderer: failed to create pipeline\n");
@@ -218,7 +228,8 @@ model_renderer_create(vulkan_render_device* vkDev,
   model_renderer->texture_sampler = textureSampler;
   model_renderer->delete_mesh_data = deleteMeshData;
 
-  model_renderer->base_renderer = base_renderer_create(vkDev, (vulkan_image) { 0, 0, 0 });
+  model_renderer->base = base_renderer_create(vkDev, (vulkan_image) { 0, 0, 0 });
+  model_renderer->base->fill_command_buffer = &model_renderer_fill_command_buffer;
 
   if (useDepth)
 	{
@@ -226,11 +237,11 @@ model_renderer_create(vulkan_render_device* vkDev,
 
 		if (model_renderer->is_external_depth)
     {
-			model_renderer->base_renderer->depth_texture = externalDepth;
+			model_renderer->base->depth_texture = externalDepth;
     }
 		else
     {
-      vulkan_create_depth_resources(vkDev, vkDev->framebuffer_width, vkDev->framebuffer_height, &model_renderer->base_renderer->depth_texture);
+      vulkan_create_depth_resources(vkDev, vkDev->framebuffer_width, vkDev->framebuffer_height, &model_renderer->base->depth_texture);
     }
 	}
 
@@ -243,24 +254,24 @@ model_renderer_create(vulkan_render_device* vkDev,
 
 	if (!vulkan_create_color_and_depth_render_pass(&vkDev,
                                                  useDepth,
-                                                 &model_renderer->base_renderer->render_pass,
+                                                 &model_renderer->base->render_pass,
                                                  &render_pass_info,
                                                  VK_FORMAT_B8G8R8A8_UNORM) ||
-      !base_renderer_create_uniform_buffers(model_renderer->base_renderer,
+      !base_renderer_create_uniform_buffers(model_renderer->base,
                                             vkDev,
                                             uniformDataSize) ||
       !vulkan_create_color_and_depth_framebuffers(vkDev,
-																						      model_renderer->base_renderer->render_pass,
-																						      model_renderer->base_renderer->depth_texture.view,
-																						      &model_renderer->base_renderer->swapchain_framebuffers) ||
-      !vulkan_create_descriptor_pool(vkDev, 1, 2, 1, &model_renderer->base_renderer->descriptor_pool) ||
+																						      model_renderer->base->render_pass,
+																						      model_renderer->base->depth_texture.view,
+																						      &model_renderer->base->swapchain_framebuffers) ||
+      !vulkan_create_descriptor_pool(vkDev, 1, 2, 1, &model_renderer->base->descriptor_pool) ||
       !model_renderer_create_descriptor_set(&model_renderer, vkDev, uniformDataSize) ||
-      !vulkan_create_pipeline_layout(vkDev->device, model_renderer->base_renderer->descriptor_set_layout, &model_renderer->base_renderer->pipeline_layout) ||
-      !vulkan_create_graphics_pipeline(vkDev, model_renderer->base_renderer->render_pass,
-                                       model_renderer->base_renderer->pipeline_layout,
+      !vulkan_create_pipeline_layout(vkDev->device, model_renderer->base->descriptor_set_layout, &model_renderer->base->pipeline_layout) ||
+      !vulkan_create_graphics_pipeline(vkDev, model_renderer->base->render_pass,
+                                       model_renderer->base->pipeline_layout,
                                        *shaderFiles,
                                        cvec_size(*shaderFiles),
-                                       &model_renderer->base_renderer->graphics_pipeline,
+                                       &model_renderer->base->graphics_pipeline,
                                        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, false, -1, -1, 0))
 	{                                                                                               
 		printf("ModelRenderer: failed to create pipeline\n");
@@ -275,34 +286,23 @@ model_renderer_destroy(t_model_renderer* model_renderer)
 {
   if (model_renderer->delete_mesh_data)
 	{
-		vkDestroyBuffer(model_renderer->base_renderer->device, model_renderer->storage_buffer, NULL);
-		vkFreeMemory(model_renderer->base_renderer->device, model_renderer->storage_buffer_memory, NULL);
+		vkDestroyBuffer(model_renderer->base->device, model_renderer->storage_buffer, NULL);
+		vkFreeMemory(model_renderer->base->device, model_renderer->storage_buffer_memory, NULL);
 	}
 
 	if (model_renderer->texture_sampler != VK_NULL_HANDLE)
 	{
-		vkDestroySampler(model_renderer->base_renderer->device, model_renderer->texture_sampler, NULL);
-    vulkan_destroy_image(model_renderer->base_renderer->device, &model_renderer->texture);
+		vkDestroySampler(model_renderer->base->device, model_renderer->texture_sampler, NULL);
+    vulkan_destroy_image(model_renderer->base->device, &model_renderer->texture);
 	}
 
 	if (!model_renderer->is_external_depth)
   {
-    vulkan_destroy_image(model_renderer->base_renderer->device, &model_renderer->base_renderer->depth_texture);
+    vulkan_destroy_image(model_renderer->base->device, &model_renderer->base->depth_texture);
   }
 
-  base_renderer_destory(model_renderer->base_renderer);
-  model_renderer->base_renderer = NULL;
-}
-
-void
-model_renderer_fill_command_buffer(t_model_renderer* model_renderer,
-                                   VkCommandBuffer commandBuffer,
-                                   u64 currentImage)
-{
-  base_renderer_begin_render_pass(model_renderer->base_renderer, commandBuffer, currentImage);
-
-	vkCmdDraw(commandBuffer, (u32)(model_renderer->index_buffer_size / (sizeof(u32))), 1, 0, 0);
-	vkCmdEndRenderPass(commandBuffer);
+  base_renderer_destory(model_renderer->base);
+  model_renderer->base = NULL;
 }
 
 void
@@ -312,7 +312,7 @@ model_renderer_update_uniform_buffer(t_model_renderer* model_renderer,
                                      const void* data,
                                      u64 dataSize)
 {
-	vulkan_upload_buffer_data(vkDev, &model_renderer->base_renderer->uniform_buffers_memory[currentImage], 0, data, dataSize);
+	vulkan_upload_buffer_data(vkDev, &model_renderer->base->uniform_buffers_memory[currentImage], 0, data, dataSize);
 }
 
 #endif

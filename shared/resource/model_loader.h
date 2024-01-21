@@ -20,7 +20,7 @@ typedef struct
 VertexData
 {
 	vec3 pos;
-	// vec3 n;
+	vec3 n;
 	vec2 tc;
 }
 VertexData;
@@ -35,7 +35,7 @@ t_mesh
   float* v_texcoords;
 	u32* v_indices;
 
-	cvec(VertexData) vn_vertices;
+	// cvec(VertexData) vn_vertices;
 }
 t_mesh;
 
@@ -196,7 +196,7 @@ t_model* LoadGLTF(const char* fileName)
           }
           else if (data->meshes[i].primitives[p].attributes[j].type == cgltf_attribute_type_texcoord) // TEXCOORD_0
           {
-            // TODO: Support additional texture coordinates: TEXCOORD_1 -> mesh.texcoords2
+            // T-268 Support additional texture coordinates: TEXCOORD_1 -> mesh.texcoords2
 
             cgltf_accessor* attribute = data->meshes[i].primitives[p].attributes[j].data;
 
@@ -284,6 +284,8 @@ t_model* LoadOBJ(const char* fileName)
     unsigned int flags = TINYOBJ_FLAG_TRIANGULATE;
     int ret = tinyobj_parse_obj(&attrib, &meshes, &meshCount, &materials, &materialCount, fileText, dataSize, flags);
 
+
+    assert(ret == TINYOBJ_SUCCESS);
     //if (ret != TINYOBJ_SUCCESS) TRACELOG(LOG_WARNING, "MODEL: [%s] Failed to load OBJ data", fileName);
     //else TRACELOG(LOG_INFO, "MODEL: [%s] OBJ data loaded successfully: %i meshes/%i materials", fileName, meshCount, materialCount);
 
@@ -308,7 +310,7 @@ t_model* LoadOBJ(const char* fileName)
       model->meshes[mi].v_vertices = (float*)calloc(model->meshes[mi].vertexCount * 3, sizeof(float));
       model->meshes[mi].v_texcoords = (float*)calloc(model->meshes[mi].vertexCount * 2, sizeof(float));
       model->meshes[mi].v_normals = (float*)calloc(model->meshes[mi].vertexCount * 3, sizeof(float));
-      model->meshes[mi].v_indices = (u32*)calloc(matFaces[mi] * 3, sizeof(u32));
+      model->meshes[mi].v_indices = cvec_create(u32);// (u32*)calloc(matFaces[mi] * 3, sizeof(u32));
       // model->meshMaterial[mi] = mi;
     }
 

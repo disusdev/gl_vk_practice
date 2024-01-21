@@ -43,6 +43,11 @@ LIB_API float math_acos(float x);
 LIB_API float math_sqrt(float x);
 LIB_API float math_abs(float x);
 
+f32 math_lerp(float a, float b, float t)
+{
+    return a + t * (b - a);
+}
+
 LIB_INLINE u8 is_power_of_2(u64 value)
 {
   return (value != 0) && ((value & (value - 1)) == 0);
@@ -501,6 +506,67 @@ LIB_INLINE mat4 mat4_mul_vec4(mat4 mat, vec4 vec)
   }
 
   return out_mat;
+}
+
+vec3 mat4_mul_vec3(mat4 mat, vec3 vec)
+{
+  f32* m = mat.data;
+
+  return (vec3)
+  {
+    m[0] * vec.x + m[4] * vec.y + m[8] * vec.z + m[12],
+    m[1] * vec.x + m[5] * vec.y + m[9] * vec.z + m[13],
+    m[2] * vec.x + m[6] * vec.y + m[10] * vec.z + m[14]
+  };
+}
+
+vec3 mat4_mul_point(mat4 mat, vec3 v)
+{
+  //float x = mat.data[0] * v.x + mat.data[1] * v.y + mat.data[2] * v.z + mat.data[3];
+  //float y = mat.data[4] * v.x + mat.data[5] * v.y + mat.data[6] * v.z + mat.data[7];
+  //float z = mat.data[8] * v.x + mat.data[9] * v.y + mat.data[10] * v.z + mat.data[11];
+
+  float x = mat.data[0] * v.x + mat.data[4] * v.y + mat.data[8] * v.z + mat.data[12];
+  float y = mat.data[1] * v.x + mat.data[5] * v.y + mat.data[9] * v.z + mat.data[13];
+  float z = mat.data[2] * v.x + mat.data[6] * v.y + mat.data[10] * v.z + mat.data[14];
+
+  return (vec3) { x, y, z };
+}
+
+vec4 mat4_mul_point_vec4(mat4 mat, vec4 v)
+{
+  float x = mat.data[0] * v.x + mat.data[4] * v.y + mat.data[8] * v.z + mat.data[12] * v.w;
+  float y = mat.data[1] * v.x + mat.data[5] * v.y + mat.data[9] * v.z + mat.data[13] * v.w;
+  float z = mat.data[2] * v.x + mat.data[6] * v.y + mat.data[10] * v.z + mat.data[14] * v.w;
+  float w = mat.data[3] * v.x + mat.data[7] * v.y + mat.data[11] * v.z + mat.data[15] * v.w;
+
+  return (vec4) { x, y, z, w };
+}
+
+LIB_INLINE vec4 vec4_mul_mat4(vec4 vec, mat4 mat)
+{
+  vec4 out_vec = vec4_zero();
+
+  const float* m0_ptr = mat.data;
+  const float* v0_ptr = vec.data;
+  // float* dst_ptr = out_vec.data;
+
+  //for (i32 i = 0; i < 4; i++)
+  //{
+  //  *dst_ptr =
+  //    v0_ptr[0] * m0_ptr[0 + i] +
+  //    v0_ptr[1] * m0_ptr[4 + i] +
+  //    v0_ptr[2] * m0_ptr[8 + i] +
+  //    v0_ptr[3] * m0_ptr[12 + i];
+  //  dst_ptr++;
+  //}
+
+  out_vec.x = v0_ptr[0] * m0_ptr[0] + v0_ptr[1] * m0_ptr[4] + v0_ptr[2] * m0_ptr[8] + v0_ptr[3] * m0_ptr[12];
+  out_vec.y = v0_ptr[0] * m0_ptr[1] + v0_ptr[1] * m0_ptr[5] + v0_ptr[2] * m0_ptr[9] + v0_ptr[3] * m0_ptr[13];
+  out_vec.z = v0_ptr[0] * m0_ptr[2] + v0_ptr[1] * m0_ptr[6] + v0_ptr[2] * m0_ptr[10] + v0_ptr[3] * m0_ptr[14];
+  out_vec.z = v0_ptr[0] * m0_ptr[3] + v0_ptr[1] * m0_ptr[7] + v0_ptr[2] * m0_ptr[11] + v0_ptr[3] * m0_ptr[15];
+
+  return out_vec;
 }
 
 LIB_INLINE mat4 mat4_ortho(float left, float right, float bottom, float top, float near, float far)
@@ -1240,5 +1306,62 @@ LIB_INLINE float rad_to_deg(float radians)
 {
   return radians * RAD2DEG;
 }
+
+LIB_INLINE bbox
+bbox_create(vec3* points,
+            u64 num_points)
+{
+  bbox b = { 0 };
+
+  vec3 vmin = { FLT_MAX, FLT_MAX, FLT_MAX };
+	vec3 vmax = { FLT_MIN, FLT_MIN, FLT_MIN };
+
+	for (u64 i = 0; i != num_points; i++)
+	{
+		// vmin = MIN(vmin, points[i]);
+		// vmax = MAX(vmax, points[i]);
+
+    vmin.x = MIN(vmin.x, points[i].x);
+    vmin.y = MIN(vmin.y, points[i].y);
+    vmin.z = MIN(vmin.z, points[i].z);
+    
+    vmax.x = MAX(vmax.x, points[i].x);
+    vmax.y = MAX(vmax.y, points[i].y);
+    vmax.z = MAX(vmax.z, points[i].z);
+	}
+
+	b.min = vmin;
+	b.max = vmax;
+}
+
+LIB_INLINE void
+bbox_transform(bbox* b, mat4 t)
+{
+  vec3 corners[] =
+  {
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+		(vec3){ b->min.x, b->min.y, b->min.z },
+	};
+
+	for (u64 i = 0; i < ARRAY_SIZE(corners); i++)  
+  {
+    vec4 corner = (vec4) { corners[i].x, corners[i].y, corners[i].z, 1.0f };
+
+    corner = vec4_mul_mat4(corner, t);
+
+		corners[i].x = corner.x;
+    corners[i].y = corner.y;
+    corners[i].y = corner.y;
+  }
+
+	*b = bbox_create(corners, ARRAY_SIZE(corners));
+}
+
 
 #endif

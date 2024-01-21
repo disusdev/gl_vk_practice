@@ -54,8 +54,8 @@ vulkan_render_device
   VkCommandBuffer compute_command_buffer;
   VkCommandPool compute_command_pool;
 
-  t_model* model;
-  int mesh_idx;
+  // t_model* model;
+  // int mesh_idx;
 }
 vulkan_render_device;
 
@@ -147,6 +147,19 @@ ShaderModule
   VkShaderModule shaderModule/* = nullptr */;
 }
 ShaderModule;
+
+typedef struct
+t_vulkan_context_features
+{
+	b8 support_screenshots /*= false*/;
+
+	b8 geometry_shader /*= true*/;
+	b8 tessellation_shader /*= false*/;
+
+	b8 vertexPipeline_stores_and_atomics /*= false*/;
+	b8 fragment_stores_and_atomics /*= false*/;
+}
+t_vulkan_context_features;
 
 void vulkan_create_context(const vulkan_instance* vk,
                            const vulkan_render_device* dev,
